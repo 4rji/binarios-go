@@ -14,6 +14,8 @@ import (
     "strings"
     "sync"
     "time"
+    "github.com/fatih/color"
+    "io"
 )
 
 // resolver DNS público
@@ -80,9 +82,9 @@ func bypassCF(domain string) {
         }
     }()
     if len(found) == 0 {
-        fmt.Println("  Ninguna IP expuesta encontrada")
+        fmt.Println("  No exposed IP found")
     } else {
-        fmt.Println("[✓] Posibles IPs de origen:")
+        fmt.Println("[✓] Possible origin IPs:")
         for ip := range found {
             fmt.Println("   ", ip)
         }
@@ -115,22 +117,29 @@ func bannerGrab(host string, port int) string {
     conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", host, port), 2*time.Second)
     if err != nil { return "" }
     defer conn.Close()
+
     if port == 443 {
         tlsConn := tls.Client(conn, &tls.Config{ServerName: host, InsecureSkipVerify: true})
+        defer tlsConn.Close()
         tlsConn.Write([]byte("GET / HTTP/1.0\r\n\r\n"))
-        conn = tlsConn
-    } else {
+        buf := make([]byte, 512)
+        n, _ := tlsConn.Read(buf)
+        return string(buf[:n])
+    } else if port == 80 {
         conn.Write([]byte("GET / HTTP/1.0\r\n\r\n"))
     }
+    
     buf := make([]byte, 512)
+    conn.SetReadDeadline(time.Now().Add(2 * time.Second))
     n, _ := conn.Read(buf)
     return string(buf[:n])
 }
 
+
 func subBrute(domain, wordlist string) {
     file, err := os.Open(wordlist)
     if err != nil {
-        fmt.Println("error abrir wordlist:", err)
+        fmt.Println("error opening wordlist:", err)
         return
     }
     defer file.Close()
@@ -167,82 +176,153 @@ func parsePorts(expr string) []int {
 
 func main() {
     if len(os.Args) != 2 {
-        fmt.Printf("Uso: %s dominio.com\n", os.Args[0])
+        color.Red("Usage: %s dominio.com\n", os.Args[0])
         os.Exit(1)
     }
     domain := os.Args[1]
+    logFileName := domain + "_dominf.txt"
+    logFile, err := os.Create(logFileName)
+    if err != nil {
+        color.Red("No se pudo crear el archivo de log: %v\n", err)
+        os.Exit(1)
+    }
+    defer logFile.Close()
+    mw := io.MultiWriter(os.Stdout, logFile)
+    color.Output = mw
     reader := bufio.NewReader(os.Stdin)
-
     for {
-        fmt.Println(`
-Menú:
- 1) Bypass Cloudflare
- 2) Port scan ligero
- 3) Banner grabbing
- 4) PTR (reverse lookup)
- 5) Real IP (dig, curl headers)
- 6) Zone transfer AXFR
- 7) Subdomain brute-force
- 8) DNS resolution
- 0) Salir`)
-        fmt.Print("Seleccione opción: ")
+        fmt.Println("")
+        color.White("--------------------------------------------------\n")
+        color.Cyan("Menu:\n 1) Bypass Cloudflare\n 2) Light port scan\n 3) Banner grabbing\n 4) PTR (reverse lookup)\n 5) Real IP (dig, curl headers)\n 6) Zone transfer AXFR\n 7) Subdomain brute-force\n 8) DNS resolution\n 0) Exit\n")
+        color.Yellow("\nSelect option: ")
         inp, _ := reader.ReadString('\n')
         opt, err := strconv.Atoi(strings.TrimSpace(inp))
         if err != nil {
-            fmt.Println("Opción inválida")
+            color.Red("\nInvalid option\n")
             continue
         }
+        color.Magenta("\n--- Selected option: %d ---\n", opt)
         switch opt {
         case 0:
-            fmt.Println("Saliendo.")
+            color.White("--------------------------------------------------\n")
+            color.Green("\nExiting.\n")
+            color.Magenta("\n[✓] Results saved to %s\n", logFileName)
             os.Exit(0)
         case 1:
-            bypassCF(domain)
+            color.White("--------------------------------------------------\n")
+            color.Blue("\n[!] Bypass Cloudflare: %s\n", domain)
+            subs := []string{"direct","ftp","mail","smtp","dev","origin","beta","panel"}
+            found := map[string]struct{}{}
+            for _, d := range append([]string{domain}, subs...) {
+                for _, t := range []string{"A","AAAA"} {
+                    for _, ip := range resolve(d, t) {
+                        color.Yellow("  %s %s -> %s\n", t, d, ip)
+                        found[ip] = struct{}{}
+                    }
+                }
+            }
+            func() {
+                conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 3 * time.Second}, "tcp", domain+":443", &tls.Config{ServerName: domain, InsecureSkipVerify: true})
+                if err != nil { return }
+                defer conn.Close()
+                for _, ip := range conn.ConnectionState().PeerCertificates[0].IPAddresses {
+                    color.Yellow("  cert IP: %s\n", ip)
+                    found[ip.String()] = struct{}{}
+                }
+            }()
+            if len(found) == 0 {
+                color.Red("  No exposed IP found\n")
+            } else {
+                color.Green("[✓] Possible origin IPs:")
+                for ip := range found {
+                    color.White("   %s\n", ip)
+                }
+            }
         case 2:
-            fmt.Print("Puertos (ej:80,443,1-1024) [default 80,443]: ")
+            color.White("--------------------------------------------------\n")
+            color.Yellow("\nPorts (e.g. 80,443 or 22,80,443) [default: 21,22,23,25,53,80,110,143,443,3306,3389,5900]\n(NO ranges like 1-1000, specify ports separated by commas): ")
             pstr, _ := reader.ReadString('\n')
             ports := parsePorts(strings.TrimSpace(pstr))
             if len(ports) == 0 {
-                ports = parsePorts("80,443")
+                ports = []int{21,22,23,25,53,80,110,143,443,3306,3389,5900}
             }
             open := portScan(domain, ports)
             if len(open) == 0 {
-                fmt.Println("[×] No open ports")
+                color.Red("[×] No open ports\n")
             } else {
                 for _, p := range open {
-                    fmt.Println("[+] open", p)
+                    color.Green("[+] open %d\n", p)
                 }
             }
+        
         case 3:
-            fmt.Print("Puertos (ej:80,443): ")
+            color.White("--------------------------------------------------\n")
+            color.Yellow("\nPorts (e.g. 80,443 or Enter for common: 21,22,23,25,53,80,110,143,443,3306,3389,5900): ")
             pstr, _ := reader.ReadString('\n')
-            ports := parsePorts(strings.TrimSpace(pstr))
-            for _, p := range ports {
-                fmt.Printf("-- %d --\n%s\n", p, bannerGrab(domain, p))
+            pstr = strings.TrimSpace(pstr)
+            var ports []int
+            if pstr == "" {
+                ports = []int{21,22,23,25,53,80,110,143,443,3306,3389,5900}
+            } else {
+                ports = parsePorts(pstr)
+            }
+            openPorts := portScan(domain, ports)
+            if len(openPorts) == 0 {
+                color.Red("[×] No open ports\n")
+            } else {
+                color.Green("[✓] Open ports detected: %v\n", openPorts)
+                for _, p := range openPorts {
+                    color.White("--------------------------------------------------\n")
+                    banner := bannerGrab(domain, p)
+                    color.White("-- %d --\n%s\n", p, banner)
+                }
             }
         case 4:
+            color.White("--------------------------------------------------\n")
             for _, ip := range resolve(domain, "A") {
                 for _, h := range ptrLookup(ip) {
-                    fmt.Println("[+] PTR:", h)
+                    color.Green("[+] PTR: %s\n", h)
                 }
             }
         case 5:
-            fmt.Println("[dig A+AAAA]", runCmd("dig", "+short", domain))
-            fmt.Println("[curl -I]", runCmd("curl", "-sI", domain))
+            color.White("--------------------------------------------------\n")
+            dig := runCmd("dig", "+short", domain)
+            curl := runCmd("curl", "-sI", domain)
+            color.Cyan("[dig A+AAAA]\n%s\n[curl -I]\n%s\n", dig, curl)
         case 6:
-            fmt.Println(runCmd("dig", "AXFR", domain, "@8.8.8.8"))
+            color.White("--------------------------------------------------\n")
+            axfr := runCmd("dig", "AXFR", domain, "@8.8.8.8")
+            color.Cyan("%s\n", axfr)
         case 7:
-            fmt.Print("Wordlist (ej: wordlist.txt): ")
+            color.White("--------------------------------------------------\n")
+            color.Yellow("\nWordlist (e.g. wordlist.txt): ")
             w, _ := reader.ReadString('\n')
-            subBrute(domain, strings.TrimSpace(w))
+            file, err := os.Open(strings.TrimSpace(w))
+            if err != nil {
+                color.Red("error opening wordlist: %v\n", err)
+                break
+            }
+            defer file.Close()
+            scanner := bufio.NewScanner(file)
+            for scanner.Scan() {
+                sub := scanner.Text()
+                full := sub + "." + domain
+                if ips := resolve(full, "A"); len(ips) > 0 {
+                    for _, ip := range ips {
+                        color.Green("[+] %s -> %s\n", full, ip)
+                    }
+                }
+            }
         case 8:
+            color.White("--------------------------------------------------\n")
             for _, t := range []string{"A", "AAAA"} {
                 for _, ip := range resolve(domain, t) {
-                    fmt.Printf("%s: %s\n", t, ip)
+                    color.Cyan("%s: %s\n", t, ip)
                 }
             }
         default:
-            fmt.Println("Opción no válida")
+            color.White("--------------------------------------------------\n")
+            color.Red("Invalid option\n")
         }
     }
 }
