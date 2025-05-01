@@ -53,14 +53,22 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
   uptime := int(time.Since(startTime).Seconds())
   logMutex.Unlock()
 
-  greenThreshold := 1000
-  yellowThreshold := 10000
-  redThreshold := 100000
+  baseGreen := 1000
+  baseYellow := 10000
+  baseRed := 100000
+
+  greenThreshold := baseGreen
+  yellowThreshold := baseYellow
+  redThreshold := baseRed
 
   if count > 90000 {
-    greenThreshold *= 10
-    yellowThreshold *= 10
-    redThreshold *= 10
+    greenThreshold = baseGreen * 10
+    yellowThreshold = baseYellow * 10
+    redThreshold = baseRed * 10
+  } else if count < 10000 {
+    greenThreshold = baseGreen
+    yellowThreshold = baseYellow
+    redThreshold = baseRed
   }
 
   json.NewEncoder(w).Encode(map[string]interface{}{
@@ -71,6 +79,7 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
     "red":               redThreshold,
   })
 }
+
 
 func resetHandler(w http.ResponseWriter, r *http.Request) {
   logMutex.Lock()
