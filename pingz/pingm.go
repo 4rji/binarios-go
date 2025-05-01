@@ -19,6 +19,36 @@ type HostConfig struct {
 	Port     string
 }
 
+func groupByPrefix(list []string) map[string][]string {
+	groups := make(map[string][]string)
+	for _, line := range list {
+		name := strings.SplitN(strings.TrimPrefix(line, "\033[34m"), "", 2)[0]
+		name = strings.SplitN(name, "\033[0m", 2)[0]
+		prefix := name
+		if i := strings.Index(name, "-"); i != -1 {
+			prefix = name[:i]
+		}
+		groups[prefix] = append(groups[prefix], line)
+	}
+	return groups
+}
+
+func printGrouped(title string, list []string) {
+	fmt.Println(title + ":\n")
+	grouped := groupByPrefix(list)
+	prefixes := make([]string, 0, len(grouped))
+	for k := range grouped {
+		prefixes = append(prefixes, k)
+	}
+	sort.Strings(prefixes)
+	for _, p := range prefixes {
+		for _, line := range grouped[p] {
+			fmt.Println(line)
+		}
+	}
+	fmt.Println("\n====================================\n")
+}
+
 func main() {
 	usr, _ := user.Current()
 	configPath := filepath.Join(usr.HomeDir, ".ssh", "config")
@@ -71,7 +101,8 @@ func main() {
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	results := []string{}
+	offlineList := []string{}
+	onlineList := []string{}
 
 	for name, cfg := range hosts {
 		wg.Add(1)
@@ -88,18 +119,28 @@ func main() {
 				status = "\033[32monline\033[0m"
 				lat = fmt.Sprintf(" \033[33m(%dms)\033[0m", elapsed.Milliseconds())
 			}
-			line := fmt.Sprintf("\033[34m%s\033[0m --- %s:%s --- %s%s", name, cfg.HostName, cfg.Port, status, lat)
+			line := fmt.Sprintf(
+				"\033[34m%-20s\033[0m  %-22s  %-8s%s",
+				name,
+				cfg.HostName+":"+cfg.Port,
+				status,
+				lat,
+			)
+
 			mu.Lock()
-			results = append(results, line)
+			if err == nil {
+				onlineList = append(onlineList, line)
+			} else {
+				offlineList = append(offlineList, line)
+			}
 			mu.Unlock()
 		}(name, cfg)
 	}
 	wg.Wait()
 
-	sort.Strings(results)
-	fmt.Println("\n=== SSH Host Status ===\n")
-	for _, r := range results {
-		fmt.Println(r)
-	}
-	fmt.Println("\n========================")
+	sort.Strings(offlineList)
+	sort.Strings(onlineList)
+
+	printGrouped("Offline", offlineList)
+	printGrouped("Online", onlineList)
 }
