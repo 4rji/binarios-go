@@ -40,26 +40,22 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
   logMutex.Unlock()
   http.Redirect(w, r, "/monitor", http.StatusFound)
 }
-
 func statusHandler(w http.ResponseWriter, r *http.Request) {
   logMutex.Lock()
   total := len(requestsLog)
   uptime := int(time.Since(startTime).Seconds())
   logMutex.Unlock()
 
-  greenThreshold := 1000
-  yellowThreshold := 10000
-  redThreshold := 100000
-
-  if total > 90000 {
-    greenThreshold = 10000
-    yellowThreshold = 100000
-    redThreshold = 1000000
-  } else if total < 10000 {
-    greenThreshold = 1000
-    yellowThreshold = 10000
-    redThreshold = 100000
+  scale := 1
+  if total > 1000000 {
+    scale = 100
+  } else if total > 100000 {
+    scale = 10
   }
+
+  greenThreshold := 1000 * scale
+  yellowThreshold := 10000 * scale
+  redThreshold := 100000 * scale
 
   json.NewEncoder(w).Encode(map[string]interface{}{
     "requests_total":    total,
@@ -69,6 +65,9 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
     "red":               redThreshold,
   })
 }
+
+
+
 
 func resetHandler(w http.ResponseWriter, r *http.Request) {
   logMutex.Lock()
