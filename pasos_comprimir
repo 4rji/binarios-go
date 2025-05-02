@@ -1,0 +1,5 @@
+#descomprime
+tar -xvf comprimidos.tar.xz  
+
+#comprime
+tar -cJvf comprimidos.tar.xz comprimidos/    
