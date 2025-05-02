@@ -9,6 +9,7 @@ import (
     "log"
     "os"
     "os/exec"
+    "regexp"
     "strings"
     "time"
 
@@ -238,19 +239,96 @@ func main() {
             vuln, _ := ioutil.ReadFile(outDir + "/vuln.nmap")
 
             escPorts := html.EscapeString(string(ports))
-            escPorts = strings.ReplaceAll(escPorts, " open ", `<span style=\"color:#28a745;font-weight:bold;\">open</span>`)
-            escPorts = strings.ReplaceAll(escPorts, " closed ", `<span style=\"color:#dc3545;font-weight:bold;\">closed</span>`)
-            escPorts = strings.ReplaceAll(escPorts, " filtered ", `<span style=\"color:#ffc107;font-weight:bold;\">filtered</span>`)
+            // Primero protocolos (22/tcp, 53/udp, etc)
+            reProto := regexp.MustCompile(`(\d+)/(tcp|udp)`)
+            escPorts = reProto.ReplaceAllString(escPorts, `<span class="proto">$0</span>`)
+            // Luego servicios comunes
+            reSvc := regexp.MustCompile(`\b(ssh|http|domain|nginx|dnsmasq)\b`)
+            escPorts = reSvc.ReplaceAllString(escPorts, `<span class="svc">$1</span>`)
+            // Por último los estados
+            reOpen := regexp.MustCompile(`\bopen\b`)
+            reClosed := regexp.MustCompile(`\bclosed\b`)
+            reFiltered := regexp.MustCompile(`\bfiltered\b`)
+            escPorts = reOpen.ReplaceAllString(escPorts, `<span class="open">open</span>`)
+            escPorts = reClosed.ReplaceAllString(escPorts, `<span class="closed">closed</span>`)
+            escPorts = reFiltered.ReplaceAllString(escPorts, `<span class="filtered">filtered</span>`)
 
-            htmlContent := fmt.Sprintf(`<!DOCTYPE html><html><head><meta charset=\"UTF-8\">
-<title>Report</title><style>pre{background:#1e1e1e;color:#e8e8e8;padding:1em;border-radius:8px;font-family:monospace;}</style></head><body>
-<h1>Network Scan Report</h1><small>%s</small>
-<h2>Live Hosts</h2><ul>%s</ul>
-<h2>Port Scan</h2><pre>%s</pre>
-<h2>SMB</h2><pre>%s</pre>
-<h2>SNMP</h2><pre>%s</pre>
-<h2>Vuln</h2><pre>%s</pre></body></html>`,
+            htmlContent := fmt.Sprintf(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Network Scan Report</title>
+<style>
+:root{--primary:#0d6efd;--bg:#f5f7fa;--card:#fff;--border:#dee2e6;}
+*{box-sizing:border-box;margin:0;padding:0;font-family:"Segoe UI",Arial,sans-serif;}
+body{background:var(--bg);padding:1rem 2rem;color:#212529;}
+.banner{background:linear-gradient(90deg,#0045ff 0%%,#009dff 100%%);color:#fff;border-radius:8px;padding:1.5rem;margin-bottom:1.5rem;}
+.banner h1{font-size:1.75rem;margin-bottom:.3rem;}
+.cards{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:2rem;}
+.card{flex:1 1 200px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:1rem;}
+.section{margin-bottom:2rem;}
+.section h2{font-size:1.1rem;margin-bottom:.6rem;color:#0045ff;}
+.list{list-style:none;padding-left:0;}
+.list li{padding:.25rem .5rem;border-bottom:1px solid var(--border);}
+pre{
+  background:#1e1e1e;
+  color:#e8e8e8;
+  padding:1rem;
+  border-radius:8px;
+  overflow-x:auto;
+  font-size:.95rem;
+  line-height:1.4;
+  font-family:"Consolas","Courier New",monospace;
+}
+.open { color: #28a745; font-weight: bold; }
+.closed { color: #dc3545; font-weight: bold; }
+.filtered { color: #ffc107; font-weight: bold; }
+.proto { color: #0dcaf0; font-weight: bold; }
+.svc { color: #6610f2; font-weight: bold; }
+</style>
+</head><body>
+
+<div class="banner">
+  <h1>Network Scan Report</h1>
+  <small>Generated: %s</small>
+</div>
+
+<div class="cards">
+  <div class="card"><h3>Target</h3><p>%s</p></div>
+  <div class="card"><h3>Hosts</h3><p>%d</p></div>
+</div>
+
+<div class="section">
+  <h2>Live Hosts</h2>
+  <ul class="list">
+%s
+  </ul>
+</div>
+
+<div class="section">
+  <h2>Port Scan</h2>
+  <pre>%s</pre>
+</div>
+
+<div class="section">
+  <h2>SMB</h2>
+  <pre>%s</pre>
+</div>
+
+<div class="section">
+  <h2>SNMP</h2>
+  <pre>%s</pre>
+</div>
+
+<div class="section">
+  <h2>Vuln</h2>
+  <pre>%s</pre>
+</div>
+
+</body></html>`,
                 time.Now().Format("2006-01-02 15:04:05"),
+                html.EscapeString(target),
+                strings.Count(string(hosts), "\n"),
                 buildListHTML(hosts), escPorts,
                 html.EscapeString(string(smb)),
                 html.EscapeString(string(snmp)),
