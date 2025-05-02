@@ -13,6 +13,7 @@ import (
     "time"
     "github.com/rivo/tview"
     "github.com/gdamore/tcell/v2"
+    "regexp"
 )
 
 func run(cmd string, args ...string) (string, error) {
@@ -179,18 +180,28 @@ func main() {
 
         // escape & then color
         escapedPorts := html.EscapeString(string(portsData))
-        escapedPorts = strings.ReplaceAll(escapedPorts, " open ", ` <span class=\"open\">open</span> `)
-        escapedPorts = strings.ReplaceAll(escapedPorts, " closed ", ` <span class=\"closed\">closed</span> `)
-        escapedPorts = strings.ReplaceAll(escapedPorts, " filtered ", ` <span class=\"filtered\">filtered</span> `)
+        // Primero protocolos (22/tcp, 53/udp, etc)
+        reProto := regexp.MustCompile(`(\d+)/(tcp|udp)`)
+        escapedPorts = reProto.ReplaceAllString(escapedPorts, `<span class="proto">$0</span>`)
+        // Luego servicios comunes
+        reSvc := regexp.MustCompile(`\b(ssh|http|domain|nginx|dnsmasq)\b`)
+        escapedPorts = reSvc.ReplaceAllString(escapedPorts, `<span class="svc">$1</span>`)
+        // Por último los estados
+        reOpen := regexp.MustCompile(`\bopen\b`)
+        reClosed := regexp.MustCompile(`\bclosed\b`)
+        reFiltered := regexp.MustCompile(`\bfiltered\b`)
+        escapedPorts = reOpen.ReplaceAllString(escapedPorts, `<span class="open">open</span>`)
+        escapedPorts = reClosed.ReplaceAllString(escapedPorts, `<span class="closed">closed</span>`)
+        escapedPorts = reFiltered.ReplaceAllString(escapedPorts, `<span class="filtered">filtered</span>`)
 
         htmlContent := fmt.Sprintf(`<!DOCTYPE html>
-<html lang=\"en\">
+<html lang="en">
 <head>
-<meta charset=\"UTF-8\">
+<meta charset="UTF-8">
 <title>Network Scan Report</title>
 <style>
 :root{--primary:#0d6efd;--bg:#f5f7fa;--card:#fff;--border:#dee2e6;}
-*{box-sizing:border-box;margin:0;padding:0;font-family:\"Segoe UI\",Arial,sans-serif;}
+*{box-sizing:border-box;margin:0;padding:0;font-family:"Segoe UI",Arial,sans-serif;}
 body{background:var(--bg);padding:1rem 2rem;color:#212529;}
 .banner{background:linear-gradient(90deg,#0045ff 0%%,#009dff 100%%);color:#fff;border-radius:8px;padding:1.5rem;margin-bottom:1.5rem;}
 .banner h1{font-size:1.75rem;margin-bottom:.3rem;}
@@ -208,28 +219,30 @@ pre{
   overflow-x:auto;
   font-size:.95rem;
   line-height:1.4;
-  font-family:\"Consolas\",\"Courier New\",monospace;
+  font-family:"Consolas","Courier New",monospace;
 }
 .open { color: #28a745; font-weight: bold; }
 .closed { color: #dc3545; font-weight: bold; }
 .filtered { color: #ffc107; font-weight: bold; }
+.proto { color: #0dcaf0; font-weight: bold; }
+.svc { color: #6610f2; font-weight: bold; }
 </style>
 </head><body>
 
-<div class=\"banner\">
+<div class="banner">
   <h1>Network Scan Report (Test Mode)</h1>
   <small>Generated: %s</small>
 </div>
 
-<div class=\"cards\">
-  <div class=\"card\"><h3>Host IP</h3><p>%s</p></div>
-  <div class=\"card\"><h3>Network</h3><p>%s</p></div>
-  <div class=\"card\"><h3>Default Gateway</h3><p>%s</p></div>
+<div class="cards">
+  <div class="card"><h3>Host IP</h3><p>%s</p></div>
+  <div class="card"><h3>Network</h3><p>%s</p></div>
+  <div class="card"><h3>Default Gateway</h3><p>%s</p></div>
 </div>
 
-<div class=\"section\">
+<div class="section">
   <h2>Live Hosts</h2>
-  <ul class=\"list\">
+  <ul class="list">
 `, time.Now().Format("2006-01-02 15:04:05"),
             html.EscapeString(getFirstLine(hostIP)),
             html.EscapeString(target),
@@ -246,7 +259,12 @@ pre{
         htmlContent += fmt.Sprintf(`  </ul>
 </div>
 
-<div class=\"section\">\n  <h2>Port Scan Results</h2>\n  <pre>%s</pre>\n</div>\n\n</body></html>`, escapedPorts)
+<div class="section">
+  <h2>Port Scan Results</h2>
+  <pre>%s</pre>
+</div>
+
+</body></html>`, escapedPorts)
 
         ioutil.WriteFile(htmlPath, []byte(htmlContent), 0644)
         fmt.Printf("\n\033[1;32m[+] Report generated: %s\033[0m\n", htmlPath)
