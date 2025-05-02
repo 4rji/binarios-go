@@ -267,7 +267,43 @@ pre{
 </body></html>`, escapedPorts)
 
         ioutil.WriteFile(htmlPath, []byte(htmlContent), 0644)
-        fmt.Printf("\n\033[1;32m[+] Report generated: %s\033[0m\n", htmlPath)
+        // Mostrar popup solo con el reporte generado y los logs del escaneo actual
+        app.QueueUpdateDraw(func() {
+            // Archivos relevantes del escaneo actual
+            var logFiles []string
+            files, _ := ioutil.ReadDir(dir)
+            for _, f := range files {
+                if strings.HasSuffix(f.Name(), ".nmap") || strings.HasSuffix(f.Name(), ".gnmap") || f.Name() == "hosts.txt" {
+                    logFiles = append(logFiles, dir+"/"+f.Name())
+                }
+            }
+            list := tview.NewList().ShowSecondaryText(false)
+            list.AddItem("[Reporte HTML] "+htmlPath, "", 0, nil)
+            for _, r := range logFiles {
+                list.AddItem(r, "", 0, nil)
+            }
+            list.SetBorder(true).SetTitle("Archivos generados").SetBackgroundColor(tcell.ColorDarkBlue)
+            okBtn := tview.NewButton("OK").SetSelectedFunc(func() {
+                app.SetRoot(flex, true)
+            })
+            okBtn.SetBackgroundColor(tcell.ColorGreen)
+            okBtn.SetLabelColor(tcell.ColorBlack)
+            list.SetDoneFunc(func() {
+                app.SetRoot(flex, true)
+            })
+            popup := tview.NewFlex().SetDirection(tview.FlexRow).
+                AddItem(tview.NewTextView().SetText("[green]Reporte finalizado![white]\nSolo se muestran los archivos de este escaneo.\n").SetDynamicColors(true), 3, 0, false).
+                AddItem(list, 0, 1, true).
+                AddItem(okBtn, 3, 0, false)
+            popup.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+                if event.Key() == tcell.KeyEsc {
+                    app.SetRoot(flex, true)
+                    return nil
+                }
+                return event
+            })
+            app.SetRoot(popup, true)
+        })
     }()
 
     if err := app.SetRoot(flex, true).Run(); err != nil {
