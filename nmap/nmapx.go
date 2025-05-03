@@ -2,16 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 )
 
 func main() {
-	// Verificar permisos de root
-	if os.Geteuid() != 0 {
-		log.Fatal("[!] Run as root.")
-	}
-	
 	// Verificar argumentos
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: ./test_scan_report <CIDR>")

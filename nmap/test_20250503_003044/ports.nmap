@@ -1,0 +1,93 @@
+# Nmap 7.95 scan initiated Sat May  3 00:30:46 2025 as: nmap -sS -sV -T4 --top-ports 1000 -iL test_20250503_003044/hosts.txt -oN test_20250503_003044/ports.nmap
+Nmap scan report for 10.0.4.1
+Host is up (0.0043s latency).
+Not shown: 990 closed tcp ports (reset)
+PORT     STATE    SERVICE             VERSION
+22/tcp   filtered ssh
+53/tcp   open     domain              dnsmasq UNKNOWN
+80/tcp   filtered http
+443/tcp  filtered https
+2601/tcp open     zebra               Quagga routing software
+2604/tcp open     zebra               Quagga routing software
+6789/tcp filtered ibm-db2-admin
+7443/tcp open     ssl/oracleas-https?
+8080/tcp open     http                Apache Tomcat (language: en)
+8443/tcp open     ssl/http            Apache Tomcat (language: en)
+1 service unrecognized despite returning data. If you know the service/version, please submit the following fingerprint at https://nmap.org/cgi-bin/submit.cgi?new-service :
+SF-Port7443-TCP:V=7.95%T=SSL%I=7%D=5/3%Time=6815B839%P=arm-apple-darwin24.
+SF:2.0%r(GetRequest,3A6,"HTTP/1\.1\x20302\x20Found\r\nContent-Security-Pol
+SF:icy:\x20default-src\x20'self';base-uri\x20'self';block-all-mixed-conten
+SF:t;font-src\x20'self'\x20https:\x20data:;frame-ancestors\x20'self';img-s
+SF:rc\x20'self'\x20data:;object-src\x20'none';script-src\x20'self';script-
+SF:src-attr\x20'none';style-src\x20'self'\x20https:\x20'unsafe-inline';upg
+SF:rade-insecure-requests\r\nCross-Origin-Resource-Policy:\x20same-site\r\
+SF:nX-DNS-Prefetch-Control:\x20off\r\nExpect-CT:\x20max-age=0\r\nX-Frame-O
+SF:ptions:\x20SAMEORIGIN\r\nStrict-Transport-Security:\x20max-age=15552000
+SF:;\x20includeSubDomains\r\nX-Download-Options:\x20noopen\r\nX-Content-Ty
+SF:pe-Options:\x20nosniff\r\nX-Permitted-Cross-Domain-Policies:\x20none\r\
+SF:nReferrer-Policy:\x20strict-origin-when-cross-origin\r\nX-XSS-Protectio
+SF:n:\x200\r\nVary:\x20Origin,\x20Accept\r\nAccess-Control-Allow-Credentia
+SF:ls:\x20true\r\nLocation:\x20https://undefined:443/protect\r\nContent-Ty
+SF:pe:\x20text/plain;\x20charset=utf-8\r\nContent-Length:\x2051\r\nDate:\x
+SF:20Sat,\x2003\x20May\x202025\x2006:31:21\x20GMT\r\nConnection:\x20close\
+SF:r\n\r\nFound\.\x20Redirectin")%r(HTTPOptions,399,"HTTP/1\.1\x20204\x20N
+SF:o\x20Content\r\nContent-Security-Policy:\x20default-src\x20'self';base-
+SF:uri\x20'self';block-all-mixed-content;font-src\x20'self'\x20https:\x20d
+SF:ata:;frame-ancestors\x20'self';img-src\x20'self'\x20data:;object-src\x2
+SF:0'none';script-src\x20'self';script-src-attr\x20'none';style-src\x20'se
+SF:lf'\x20https:\x20'unsafe-inline';upgrade-insecure-requests\r\nCross-Ori
+SF:gin-Resource-Policy:\x20same-site\r\nX-DNS-Prefetch-Control:\x20off\r\n
+SF:Expect-CT:\x20max-age=0\r\nX-Frame-Options:\x20SAMEORIGIN\r\nStrict-Tra
+SF:nsport-Security:\x20max-age=15552000;\x20includeSubDomains\r\nX-Downloa
+SF:d-Options:\x20noopen\r\nX-Content-Type-Options:\x20nosniff\r\nX-Permitt
+SF:ed-Cross-Domain-Policies:\x20none\r\nReferrer-Policy:\x20strict-origin-
+SF:when-cross-origin\r\nX-XSS-Protection:\x200\r\nVary:\x20Origin,\x20Acce
+SF:ss-Control-Request-Headers\r\nAccess-Control-Allow-Credentials:\x20true
+SF:\r\nAccess-Control-Allow-Methods:\x20GET,HEAD,PUT,PATCH,POST,DELETE\r\n
+SF:Access-Control-Max-Age:\x203600\r\nContent-Length:\x200\r\nDate:\x20Sat
+SF:,\x2003\x20May\x202025\x2006:31:26\x20GMT\r\n");
+MAC Address: 68:D7:9A:29:3D:96 (Ubiquiti)
+
+Nmap scan report for 10.0.4.2
+Host is up (0.0034s latency).
+Not shown: 989 filtered tcp ports (no-response)
+PORT     STATE SERVICE       VERSION
+21/tcp   open  ftp?
+22/tcp   open  ssh?
+23/tcp   open  telnet?
+25/tcp   open  smtp?
+53/tcp   open  domain        dnsmasq UNKNOWN
+80/tcp   open  http?
+110/tcp  open  pop3?
+445/tcp  open  microsoft-ds?
+1433/tcp open  ms-sql-s?
+2222/tcp open  EtherNetIP-1?
+8000/tcp open  http-alt?
+1 service unrecognized despite returning data. If you know the service/version, please submit the following fingerprint at https://nmap.org/cgi-bin/submit.cgi?new-service :
+SF-Port23-TCP:V=7.95%I=7%D=5/3%Time=6815B833%P=arm-apple-darwin24.2.0%r(NU
+SF:LL,9,"\xff\xfd\x18\xff\xfd\x20\xff\xfd'")%r(GenericLines,1B,"\xff\xfd\x
+SF:18\xff\xfd\x20\xff\xfd'\xff\xfa\x20\x01\xff\xf0\xff\xfa'\x01\xff\xf0\xf
+SF:f\xfa\x18\x01\xff\xf0");
+MAC Address: 68:D7:9A:29:3D:96 (Ubiquiti)
+
+Nmap scan report for 10.0.4.42
+Host is up (0.17s latency).
+All 1000 scanned ports on 10.0.4.42 are in ignored states.
+Not shown: 1000 filtered tcp ports (no-response)
+MAC Address: D0:C2:4E:A3:33:B2 (Samsung Electronics)
+
+Nmap scan report for 10.0.4.106
+Host is up (0.0095s latency).
+All 1000 scanned ports on 10.0.4.106 are in ignored states.
+Not shown: 1000 closed tcp ports (reset)
+MAC Address: F2:10:E0:EC:7A:44 (Unknown)
+
+Nmap scan report for deb-book1 (10.0.4.135)
+Host is up (0.0055s latency).
+Not shown: 998 filtered tcp ports (no-response)
+PORT     STATE  SERVICE    VERSION
+22/tcp   open   ssh        OpenSSH 9.2p1 Debian 2+deb12u5 (protocol 2.0)
+3128/tcp closed squid-http
+MAC Address: 58:82:A8:97:D8:3A (Microsoft)
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
