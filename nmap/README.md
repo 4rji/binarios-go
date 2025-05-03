@@ -7,12 +7,12 @@
 
 ### Run the Full UI Scanner
 ```sh
-sudo go run nmap-full.go <CIDR>
+sudo go run old-files/nmap-full.go <CIDR>
 ```
 
 ### Run the Half UI Scanner
 ```sh
-sudo go run nmap-half.go <CIDR>
+sudo go run old-files/nmap-half.go <CIDR>
 ```
 
 Replace `<CIDR>` with the target network, e.g. `192.168.1.0/24`.
@@ -26,7 +26,7 @@ Replace `<CIDR>` with the target network, e.g. `192.168.1.0/24`.
 
 The project has been refactored into a modular structure for better maintainability:
 
-- `nmap-half.go`: Main application entry point for the "half" UI scanner
+- `nmapx.go`: Main application entry point for the "half" UI scanner
 - `nmap-full.go`: Main application entry point for the "full" UI scanner
 - `utils.go`: Basic utility functions like command execution
 - `ui.go`: UI setup and application state definitions
@@ -44,7 +44,7 @@ After refactoring the code into multiple files, you can run the application usin
 
 To run the Half UI scanner:
 ```sh
-sudo go run nmap-half.go utils.go ui.go monitor.go scanner.go report.go <CIDR>
+sudo go run nmapx.go utils.go ui.go monitor.go scanner.go report.go <CIDR>
 ```
 
 To run the Full UI scanner:
@@ -54,7 +54,7 @@ sudo go run nmap-full.go utils.go ui.go monitor.go scanner.go report.go <CIDR>
 
 Example (for scanning the 10.0.4.0/24 network with Half UI scanner):
 ```sh
-sudo go run nmap-half.go utils.go ui.go monitor.go scanner.go report.go 10.0.4.0/24
+sudo go run nmapx.go utils.go ui.go monitor.go scanner.go report.go 10.0.4.0/24
 ```
 
 ### Method 2: Run using go run with the directory
@@ -68,7 +68,7 @@ sudo go run . <CIDR>  # This may not work in all cases
 
 To compile the scanner:
 ```sh
-go build -o nmapx nmap-half.go utils.go ui.go monitor.go scanner.go report.go
+go build -o nmapx nmapx.go utils.go ui.go monitor.go scanner.go report.go
 sudo ./nmapx <CIDR>
 ```
 

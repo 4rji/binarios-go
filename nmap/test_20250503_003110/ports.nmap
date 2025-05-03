@@ -1,1 +1,0 @@
-# Nmap 7.95 scan initiated Sat May  3 00:31:16 2025 as: nmap -sS -sV -T4 --top-ports 1000 -iL test_20250503_003110/hosts.txt -oN test_20250503_003110/ports.nmap
