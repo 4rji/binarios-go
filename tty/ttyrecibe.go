@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	ln, err := net.Listen("tcp", ":4444") // puerto local
+	ln, err := net.Listen("tcp", ":1234") // puerto local
 	if err != nil { return }
 	defer ln.Close()
 
