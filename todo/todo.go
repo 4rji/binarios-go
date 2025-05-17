@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"regexp"
@@ -114,18 +115,17 @@ func parseReadme(filename string) ([]Script, error) {
 		if !reCategory.MatchString(line) && strings.TrimSpace(line) != "" {
 			parts := strings.Fields(line)
 			if len(parts) > 0 {
-				script := parts[0]
-				// Skip if we've already seen this script
-				if seenScripts[script] {
+				scriptFile := parts[0]
+				if seenScripts[scriptFile] {
 					continue
 				}
-				seenScripts[script] = true
+				seenScripts[scriptFile] = true
 
 				desc := ""
 				if len(parts) > 1 {
 					desc = strings.Join(parts[1:], " ")
 				}
-				scripts = append(scripts, Script{Name: script, Desc: desc})
+				scripts = append(scripts, Script{Name: scriptFile, Desc: desc})
 			}
 		}
 	}
@@ -159,7 +159,7 @@ func formatScriptList(scripts []Script) []string {
 		}
 	}
 
-	maxNameLength += 2 // Reduced padding since we're using simpler format
+	maxNameLength += 2
 
 	for _, s := range scripts {
 		padding := strings.Repeat(" ", maxNameLength-len(s.Name))
@@ -184,7 +184,6 @@ func formatScriptList(scripts []Script) []string {
 }
 
 func getScriptName(selectedScript string) string {
-	// Remove all color codes first
 	cleanSelected := strings.ReplaceAll(selectedScript, ColorRed, "")
 	cleanSelected = strings.ReplaceAll(cleanSelected, ColorReset, "")
 	cleanSelected = strings.ReplaceAll(cleanSelected, ThemeCyan, "")
@@ -192,23 +191,19 @@ func getScriptName(selectedScript string) string {
 	cleanSelected = strings.ReplaceAll(cleanSelected, Bold, "")
 	cleanSelected = strings.ReplaceAll(cleanSelected, Dim, "")
 
-	// Split by the dot separator
 	parts := strings.SplitN(cleanSelected, "·", 2)
 	if len(parts) < 2 {
 		return ""
 	}
 
-	// Get the first part and trim spaces
 	scriptName := strings.TrimSpace(parts[0])
 	fmt.Printf("%sExtracted script name: '%s'%s\n", ColorCyan, scriptName, ColorReset)
 	return scriptName
 }
 
-// Función showImage corregida: usa "chafa" para mostrar imágenes.
 func showImage(scriptName string) bool {
 	imgPath := fmt.Sprintf("/opt/4rji/img-bin/%s", scriptName)
 
-	// Try WebP first
 	if _, err := os.Stat(imgPath + ".webp"); err == nil {
 		cmd := exec.Command("chafa", "--size", "80x40", imgPath+".webp")
 		output, err := cmd.CombinedOutput()
@@ -219,7 +214,6 @@ func showImage(scriptName string) bool {
 		return true
 	}
 
-	// Try PNG if WebP doesn't exist
 	if _, err := os.Stat(imgPath + ".png"); err == nil {
 		cmd := exec.Command("chafa", "--size", "80x40", imgPath+".png")
 		output, err := cmd.CombinedOutput()
@@ -233,87 +227,126 @@ func showImage(scriptName string) bool {
 	return false
 }
 
-// Function to check if a file is binary
 func isBinaryFile(filepath string) bool {
 	file, err := os.Open(filepath)
 	if err != nil {
+		fmt.Printf("%sError opening file %s: %v%s\n", ColorRed, filepath, err, ColorReset)
 		return true
 	}
 	defer file.Close()
 
-	buffer := make([]byte, 512)
-	_, err = file.Read(buffer)
-	if err != nil {
+	reader := bufio.NewReader(file)
+	firstLine, err := reader.ReadString('\n')
+	if err != nil && err != io.EOF {
+		fmt.Printf("%sError reading first line of %s: %v%s\n", ColorRed, filepath, err, ColorReset)
 		return true
 	}
 
-	// Check for null bytes which are common in binary files
-	for _, b := range buffer {
-		if b == 0 {
+	if strings.HasPrefix(firstLine, "#!") {
+		fmt.Printf("%sFile %s is a shell script (has shebang)%s\n", ColorGreen, filepath, ColorReset)
+		return false
+	}
+
+	_, err = file.Seek(0, io.SeekStart)
+	if err != nil {
+		fmt.Printf("%sError seeking file %s: %v%s\n", ColorRed, filepath, err, ColorReset)
+		return true
+	}
+	buffer := make([]byte, 512)
+	n, err := file.Read(buffer)
+	if err != nil && err != io.EOF {
+		fmt.Printf("%sError reading file %s: %v%s\n", ColorRed, filepath, err, ColorReset)
+		return true
+	}
+	if n == 0 {
+		return false
+	}
+
+	if n >= 2 {
+		if buffer[0] == 0xFF && buffer[1] == 0xD8 {
 			return true
+		} // JPEG
+		if buffer[0] == 0x89 && buffer[1] == 0x50 {
+			return true
+		} // PNG
+		if buffer[0] == 0x47 && buffer[1] == 0x49 {
+			return true
+		} // GIF
+		if buffer[0] == 0x25 && buffer[1] == 0x50 {
+			return true
+		} // PDF
+	}
+
+	textChars := 0
+	controlChars := 0
+	inEscape := false
+	escapeCount := 0
+
+	for i := 0; i < n; i++ {
+		if inEscape {
+			escapeCount++
+			if buffer[i] == 'm' || escapeCount >= 3 {
+				inEscape = false
+				escapeCount = 0
+			}
+			continue
+		}
+		if buffer[i] == 27 {
+			inEscape = true
+			escapeCount = 1
+			continue
+		}
+		if buffer[i] >= 32 && buffer[i] <= 126 {
+			textChars++
+		} else if buffer[i] == 9 || buffer[i] == 10 || buffer[i] == 13 {
+			controlChars++
 		}
 	}
-	return false
+
+	totalValidChars := textChars + controlChars
+	textRatio := float64(totalValidChars) / float64(n)
+
+	fmt.Printf("%sFile %s: %d tc, %d cc, %d bytes, ratio: %.2f%s\n",
+		ColorCyan, filepath, textChars, controlChars, n, textRatio, ColorReset)
+
+	return textRatio < 0.5
 }
 
-// Function to view script content
 func viewScriptContent(scriptName string) {
 	scriptPath := fmt.Sprintf("/opt/4rji/bin/%s", scriptName)
-
-	// Check if file exists
 	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
 		fmt.Printf("%sScript file not found: %s%s\n", ColorRed, scriptPath, ColorReset)
 		return
 	}
-
-	// Check if file is binary
 	if isBinaryFile(scriptPath) {
 		fmt.Printf("%sCannot view binary file%s\n", ColorRed, ColorReset)
 		return
 	}
-
-	// Read and display file content
 	content, err := os.ReadFile(scriptPath)
 	if err != nil {
 		fmt.Printf("%sError reading script: %v%s\n", ColorRed, err, ColorReset)
 		return
 	}
-
-	// Clear screen and show content
 	fmt.Print("\033[H\033[2J")
-	fmt.Printf("%sScript content for %s:%s\n\n", ColorCyan, scriptName, ColorReset)
-	fmt.Printf("%s%s%s\n", ColorWhite, string(content), ColorReset)
-	fmt.Printf("\n%sPress Enter to return...%s", ColorCyan, ColorReset)
-
-	// Wait for Enter key
-	reader := bufio.NewReader(os.Stdin)
-	_, _ = reader.ReadString('\n')
-
-	// Clear screen before returning
+	fmt.Printf("%sScript content for %s:%s\n\n%s%s%s\n\n%sPress Enter to return...%s",
+		ColorCyan, scriptName, ColorReset, ColorWhite, string(content), ColorReset, ColorCyan, ColorReset)
+	bufio.NewReader(os.Stdin).ReadString('\n')
 	fmt.Print("\033[H\033[2J")
 }
 
-// Function to execute script with arguments
 func executeScript(scriptName string, args []string) {
 	scriptPath := fmt.Sprintf("/opt/4rji/bin/%s", scriptName)
-
-	// Check if file exists
 	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
-		fmt.Printf("%sScript file not found: %s%s\n", ColorRed, scriptPath, ColorReset)
-		fmt.Printf("\n%sPress Enter to return...%s", ColorCyan, ColorReset)
+		fmt.Printf("%sScript file not found: %s%s\n\n%sPress Enter to return...%s", ColorRed, scriptPath, ColorReset, ColorCyan, ColorReset)
 		bufio.NewReader(os.Stdin).ReadString('\n')
 		return
 	}
-
-	// Construct the command string for the shell
 	var commandParts []string
-	// Quote the script path itself if it contains spaces or special shell characters
 	quotedScriptPath := scriptPath
 	if strings.ContainsAny(scriptPath, " '\"`$*&|(){}[];<>?!\\#") {
 		quotedScriptPath = "'" + strings.ReplaceAll(scriptPath, "'", "'\\''") + "'"
 	}
 	commandParts = append(commandParts, quotedScriptPath)
-
 	for _, arg := range args {
 		quotedArg := arg
 		if strings.ContainsAny(arg, " '\"`$*&|(){}[];<>?!\\#") {
@@ -322,53 +355,33 @@ func executeScript(scriptName string, args []string) {
 		commandParts = append(commandParts, quotedArg)
 	}
 	fullCommand := strings.Join(commandParts, " ")
-
-	fmt.Print("\033[H\033[2J") // Clear screen
-
-	// Try to copy to clipboard, but don't fail if it doesn't work
+	fmt.Print("\033[H\033[2J")
 	err := copyToClipboard(fullCommand)
 	if err != nil {
-		fmt.Printf("%sNote: Could not copy to clipboard (%v)%s\n", ColorYellow, err, ColorReset)
-		fmt.Printf("%sPlease copy the command manually:%s\n\n", ColorYellow, ColorReset)
+		fmt.Printf("%sNote: Could not copy to clipboard (%v)%s\n%sPlease copy the command manually:%s\n\n", ColorYellow, err, ColorReset, ColorYellow, ColorReset)
 	} else {
 		fmt.Printf("%sCommand copied to clipboard:%s\n", ColorCyan, ColorReset)
 	}
-
-	fmt.Printf("%s%s%s\n\n", ThemeGreen, fullCommand, ColorReset)
-	fmt.Printf("%sYou can now run this command in your terminal.%s\n", ColorYellow, ColorReset)
-	fmt.Printf("%sPress Enter to exit...%s", ColorCyan, ColorReset)
+	fmt.Printf("%s%s%s\n\n%sYou can now run this command in your terminal.%s\n%sPress Enter to exit...%s", ThemeGreen, fullCommand, ColorReset, ColorYellow, ColorReset, ColorCyan, ColorReset)
 	bufio.NewReader(os.Stdin).ReadString('\n')
-	os.Exit(0) // Exit the program
+	os.Exit(0)
 }
 
-// Function to view script content with less
 func viewScriptWithLess(scriptName string) {
 	scriptPath := fmt.Sprintf("/opt/4rji/bin/%s", scriptName)
-
-	// Check if file exists
 	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
 		fmt.Printf("%sScript file not found: %s%s\n", ColorRed, scriptPath, ColorReset)
 		return
 	}
-
-	// Check if file is binary
-	if isBinaryFile(scriptPath) {
-		fmt.Printf("%sCannot view binary file%s\n", ColorRed, ColorReset)
-		return
-	}
-
-	// Try to use bat first (better syntax highlighting)
 	batPath, err := exec.LookPath("bat")
 	if err == nil {
-		cmd := exec.Command(batPath, "--style=numbers", "--color=always", scriptPath)
+		cmd := exec.Command(batPath, "--style=numbers", "--color=always", "--language=bash", scriptPath)
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Run()
 		return
 	}
-
-	// Fallback to less with colors
 	cmd := exec.Command("less", "-R", scriptPath)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -377,13 +390,8 @@ func viewScriptWithLess(scriptName string) {
 }
 
 func showDetailedDescription(scriptName string, descriptions Descriptions, scripts []Script) {
-	// Clear screen and reset cursor position
 	fmt.Print("\033[H\033[2J\033[3J")
-
-	// Move cursor to top of screen
 	fmt.Print("\033[H")
-
-	// Show detailed description from descriptions.json if available
 	if desc, ok := descriptions[scriptName]; ok {
 		fmt.Printf("%s", Dim)
 		printSeparator()
@@ -392,35 +400,27 @@ func showDetailedDescription(scriptName string, descriptions Descriptions, scrip
 		fmt.Printf("%sShort description:%s %s%s%s\n", ColorYellow, ColorReset, ColorWhite, desc.ShortDesc, ColorReset)
 		fmt.Printf("\n%sDetailed description:%s\n%s%s%s\n", ColorYellow, ColorReset, ColorWhite, desc.DetailedDesc, ColorReset)
 	} else {
-		// Show README description if no description.json entry exists
-		for _, script := range scripts {
-			if script.Name == scriptName {
-				// Center the script name
+		for _, scr := range scripts {
+			if scr.Name == scriptName {
 				width := 80
-				padding := (width - len(scriptName)) / 2
-				centeredName := strings.Repeat(" ", padding) + scriptName
-
+				padding := (width - len(scr.Name)) / 2
+				centeredName := strings.Repeat(" ", padding) + scr.Name
 				fmt.Printf("%s", Dim)
 				printSeparator()
 				fmt.Printf("%s", ColorReset)
 				fmt.Printf("%s%s%s\n", ColorCyan, centeredName, ColorReset)
-				fmt.Printf("%s%s%s\n", ColorWhite, script.Desc, ColorReset)
+				fmt.Printf("%s%s%s\n", ColorWhite, scr.Desc, ColorReset)
 				break
 			}
 		}
 	}
-
-	// Show image only if it exists
 	fmt.Print("\n\n\n")
 	fmt.Printf("%s", Dim)
 	printSeparator()
 	fmt.Printf("%s", ColorReset)
 	if showImage(scriptName) {
 		fmt.Print("")
-		fmt.Printf("%s", ThemeBlue)
-		fmt.Printf("%s", ColorReset)
 	}
-
 	fmt.Printf("%s", Dim)
 	printSeparator()
 	fmt.Printf("%s", ColorReset)
@@ -430,29 +430,22 @@ func showDetailedDescription(scriptName string, descriptions Descriptions, scrip
 	fmt.Printf("%s[%sEnter%s] Return to menu\n", ColorWhite, ColorCyan, ColorWhite)
 	fmt.Printf("\n%sSelect an option: %s", ColorCyan, ColorReset)
 
-	// Use a buffered channel to read a single character
 	reader := bufio.NewReader(os.Stdin)
 	char, _, err := reader.ReadRune()
 	if err != nil {
-		return // Exit if there's an error reading input
+		return
 	}
-
 	switch char {
 	case 'v', 'V':
 		viewScriptWithLess(scriptName)
-		// After viewing script, show the description again
 		showDetailedDescription(scriptName, descriptions, scripts)
 	case 'e', 'E':
-		executeScript(scriptName, nil) // Pass nil for args since we don't want to prompt
-		// After executing script, show the description again
-		showDetailedDescription(scriptName, descriptions, scripts)
+		executeScript(scriptName, nil)
 	default:
-		// If Enter or any other key is pressed, just return to the main loop
 		return
 	}
 }
 
-// New function to print fancy box
 func printFancyBox(title string, content string) {
 	width := 60
 	fmt.Printf("%s%s%s%s%s\n", ThemeBlue, BoxTopLeft, strings.Repeat(BoxHorizontal, width-2), BoxTopRight, ColorReset)
@@ -461,16 +454,12 @@ func printFancyBox(title string, content string) {
 	fmt.Println(content)
 }
 
-// Add this function before main()
 func copyToClipboard(text string) error {
 	var cmd *exec.Cmd
-
-	// Detect OS and use appropriate clipboard command
 	switch runtime.GOOS {
 	case "darwin":
 		cmd = exec.Command("pbcopy")
 	case "linux":
-		// Try xclip first, then xsel
 		if _, err := exec.LookPath("xclip"); err == nil {
 			cmd = exec.Command("xclip", "-selection", "clipboard")
 		} else if _, err := exec.LookPath("xsel"); err == nil {
@@ -481,30 +470,23 @@ func copyToClipboard(text string) error {
 	default:
 		return fmt.Errorf("unsupported operating system: %s", runtime.GOOS)
 	}
-
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return err
 	}
-
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-
 	if _, err := stdin.Write([]byte(text)); err != nil {
 		return err
 	}
-
 	if err := stdin.Close(); err != nil {
 		return err
 	}
-
 	return cmd.Wait()
 }
 
-// Devuelve la lista combinada de scripts del README y ejecutables de /opt/4rji/bin
 func getCombinedScripts(readmePath, binDir string) ([]Script, error) {
-	// 1. Scripts del README
 	readmeScripts, err := parseReadme(readmePath)
 	if err != nil {
 		return nil, err
@@ -513,11 +495,9 @@ func getCombinedScripts(readmePath, binDir string) ([]Script, error) {
 	for _, s := range readmeScripts {
 		readmeMap[s.Name] = true
 	}
-
-	// 2. Ejecutables en /opt/4rji/bin
 	entries, err := os.ReadDir(binDir)
 	if err != nil {
-		return readmeScripts, nil // Si falla, solo los del README
+		return readmeScripts, nil
 	}
 	var extraScripts []Script
 	for _, entry := range entries {
@@ -528,7 +508,6 @@ func getCombinedScripts(readmePath, binDir string) ([]Script, error) {
 		if readmeMap[name] {
 			continue
 		}
-		// Opcional: solo archivos ejecutables
 		info, err := entry.Info()
 		if err != nil {
 			continue
@@ -536,36 +515,28 @@ func getCombinedScripts(readmePath, binDir string) ([]Script, error) {
 		mode := info.Mode()
 		if mode&0111 == 0 {
 			continue
-		} // No es ejecutable
+		}
 		extraScripts = append(extraScripts, Script{
 			Name: name,
 			Desc: "Enter to see description",
 		})
 	}
-
-	// 3. Mezclar listas
 	allScripts := append(readmeScripts, extraScripts...)
 	return allScripts, nil
 }
 
 func main() {
-	// Clear screen
 	fmt.Print("\033[H\033[2J")
-
 	fmt.Printf("%sStarting program...%s\n", ColorCyan, ColorReset)
-	// Get initial search term from command line arguments (e.g. './todo ssh')
 	currentQuery := ""
 	if len(os.Args) > 1 {
 		currentQuery = strings.Join(os.Args[1:], " ")
 	}
-
 	descriptions, err := loadDescriptions()
 	if err != nil {
 		fmt.Printf("%sError reading descriptions.json: %v%s\n", ColorRed, err, ColorReset)
-		descriptions = make(Descriptions) // Initialize empty map to continue
+		descriptions = make(Descriptions)
 	}
-
-	// Verify if firefoxephemeral exists in descriptions
 	if desc, ok := descriptions["firefoxephemeral"]; ok {
 		fmt.Printf("%sFirefoxephemeral found in descriptions: %s%s\n",
 			ColorGreen, desc.ShortDesc, ColorReset)
@@ -573,80 +544,54 @@ func main() {
 		fmt.Printf("%sFirefoxephemeral not found in descriptions%s\n",
 			ColorYellow, ColorReset)
 	}
-
 	scripts, err := getCombinedScripts("/opt/4rji/bin/README.md", "/opt/4rji/bin")
 	if err != nil {
 		fmt.Printf("%sError reading scripts: %v%s\n", ColorRed, err, ColorReset)
 		return
 	}
-
 	if len(scripts) == 0 {
 		fmt.Printf("%sNo scripts found in README or bin directory%s\n", ColorYellow, ColorReset)
 		return
 	}
-
 	scriptChoices := formatScriptList(scripts)
 	fmt.Printf("%sCreated %d script choices%s\n", ColorGreen, len(scriptChoices), ColorReset)
-
-	// Sort script choices alphabetically
 	sort.Slice(scriptChoices, func(i, j int) bool {
-		// Remove color codes and formatting from both strings
 		cleanA := strings.ReplaceAll(scriptChoices[i], ColorRed, "")
 		cleanA = strings.ReplaceAll(cleanA, ColorReset, "")
 		cleanA = strings.ReplaceAll(cleanA, ThemeCyan, "")
 		cleanA = strings.ReplaceAll(cleanA, ThemeBlue, "")
 		cleanA = strings.ReplaceAll(cleanA, Bold, "")
 		cleanA = strings.ReplaceAll(cleanA, Dim, "")
-
 		cleanB := strings.ReplaceAll(scriptChoices[j], ColorRed, "")
 		cleanB = strings.ReplaceAll(cleanB, ColorReset, "")
 		cleanB = strings.ReplaceAll(cleanB, ThemeCyan, "")
 		cleanB = strings.ReplaceAll(cleanB, ThemeBlue, "")
 		cleanB = strings.ReplaceAll(cleanB, Bold, "")
 		cleanB = strings.ReplaceAll(cleanB, Dim, "")
-
-		// Get script names
 		partsA := strings.SplitN(cleanA, "·", 2)
 		partsB := strings.SplitN(cleanB, "·", 2)
-
 		if len(partsA) < 2 || len(partsB) < 2 {
 			return false
 		}
-
 		nameA := strings.TrimSpace(partsA[0])
 		nameB := strings.TrimSpace(partsB[0])
-
-		// Sort alphabetically
 		return strings.ToLower(nameA) < strings.ToLower(nameB)
 	})
-
 	for {
-		// Clear screen at the start of each loop
 		fmt.Print("\033[H\033[2J")
-
-		// Show header only once
-		header := fmt.Sprintf(`
-%s╭─────────────────────────────────────────────╮%s
-%s│%s %s4rji Script Selector%s                        %s│%s
-%s╰─────────────────────────────────────────────╯%s
-`,
+		header := fmt.Sprintf("\n%s╭─────────────────────────────────────────────╮%s\n%s│%s %s4rji Script Selector%s                        %s│%s\n%s╰─────────────────────────────────────────────╯%s\n",
 			ThemeBlue, ColorReset,
 			ThemeBlue, ColorReset, Bold, ColorReset, ThemeBlue, ColorReset,
 			ThemeBlue, ColorReset,
 		)
 		fmt.Print(header)
-
 		printFancyBox("Available Scripts", "Choose a script from the list below:")
-
 		var selectedScript string
-		// Interactive selection via fzf; simple filter on script names only
 		fzfPath, err := exec.LookPath("fzf")
 		if err == nil {
 			args := []string{
 				"--ansi",
-				// Ctrl-U clears the query to show all scripts
 				"--bind", "ctrl-u:clear-query",
-				// Print the query to stdout before the selection
 				"--print-query",
 				"--delimiter", "·",
 				"--nth", "1",
@@ -660,14 +605,12 @@ func main() {
 			cmd.Stderr = os.Stderr
 			out, err := cmd.Output()
 			if err != nil {
-				// If user pressed Ctrl-C in fzf (exit code 130), exit program
 				if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 130 {
 					os.Exit(0)
 				}
-				// Any other error or abort, restart loop
+				currentQuery = ""
 				continue
 			}
-			// Parse query and selection from fzf output
 			outStr := string(out)
 			parts := strings.SplitN(outStr, "\n", 2)
 			currentQuery = parts[0]
@@ -677,37 +620,31 @@ func main() {
 				selectedScript = ""
 			}
 		} else {
-			// fzf not found; fallback to first choice
 			if len(scriptChoices) > 0 {
 				selectedScript = scriptChoices[0]
 			} else {
+				fmt.Println("fzf not found and no scripts available.")
 				return
 			}
+		}
+
+		if selectedScript == "" {
+			continue
 		}
 
 		fmt.Printf("%sSelected option: '%s'%s\n", ColorCyan, selectedScript, ColorReset)
 		scriptName := getScriptName(selectedScript)
 		if scriptName == "" {
-			fmt.Printf("%sInvalid selection%s\n", ColorRed, ColorReset)
+			fmt.Printf("%sInvalid selection, restarting...%s\n", ColorRed, ColorReset)
+			currentQuery = ""
 			continue
 		}
-
-		// Copy script name to clipboard
 		if err := copyToClipboard(scriptName); err != nil {
 			fmt.Printf("%sError copying to clipboard: %v%s\n", ColorRed, err, ColorReset)
 		} else {
 			fmt.Printf("%sScript name '%s' copied to clipboard!%s\n", ColorGreen, scriptName, ColorReset)
 		}
-
-		// Clear screen before showing details
 		fmt.Print("\033[H\033[2J")
 		showDetailedDescription(scriptName, descriptions, scripts)
-
-		fmt.Printf("%s", Dim)
-
-		fmt.Printf("%s", ColorReset)
-		fmt.Printf("%s%s Press Enter to return...%s", ColorCyan, "↩", ColorReset)
-		reader := bufio.NewReader(os.Stdin)
-		_, _ = reader.ReadString('\n')
 	}
 }
