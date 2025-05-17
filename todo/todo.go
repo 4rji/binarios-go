@@ -357,8 +357,19 @@ func viewScriptWithLess(scriptName string) {
 		return
 	}
 
-	// Use less to view the file
-	cmd := exec.Command("less", scriptPath)
+	// Try to use bat first (better syntax highlighting)
+	batPath, err := exec.LookPath("bat")
+	if err == nil {
+		cmd := exec.Command(batPath, "--style=numbers", "--color=always", scriptPath)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Run()
+		return
+	}
+
+	// Fallback to less with colors
+	cmd := exec.Command("less", "-R", scriptPath)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
