@@ -341,6 +341,30 @@ func executeScript(scriptName string, args []string) {
 	os.Exit(0) // Exit the program
 }
 
+// Function to view script content with less
+func viewScriptWithLess(scriptName string) {
+	scriptPath := fmt.Sprintf("/opt/4rji/bin/%s", scriptName)
+
+	// Check if file exists
+	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+		fmt.Printf("%sScript file not found: %s%s\n", ColorRed, scriptPath, ColorReset)
+		return
+	}
+
+	// Check if file is binary
+	if isBinaryFile(scriptPath) {
+		fmt.Printf("%sCannot view binary file%s\n", ColorRed, ColorReset)
+		return
+	}
+
+	// Use less to view the file
+	cmd := exec.Command("less", scriptPath)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Run()
+}
+
 func showDetailedDescription(scriptName string, descriptions Descriptions, scripts []Script) {
 	// Clear screen and reset cursor position
 	fmt.Print("\033[H\033[2J\033[3J")
@@ -383,14 +407,19 @@ func showDetailedDescription(scriptName string, descriptions Descriptions, scrip
 	if showImage(scriptName) {
 		fmt.Print("")
 		fmt.Printf("%s", ThemeBlue)
-
 		fmt.Printf("%s", ColorReset)
 	}
 
 	fmt.Printf("%s", Dim)
+	printSeparator()
 	fmt.Printf("%s", ColorReset)
-	fmt.Printf("%s%s Press Enter to return, 'v' to view script, 'e' to execute%s", ColorCyan, "↩", ColorReset)
+	fmt.Printf("\n%sOptions:%s\n", ColorYellow, ColorReset)
+	fmt.Printf("%s[%sv%s] View script with less\n", ColorWhite, ColorCyan, ColorWhite)
+	fmt.Printf("%s[%se%s] Execute script\n", ColorWhite, ColorCyan, ColorWhite)
+	fmt.Printf("%s[%sEnter%s] Return to menu\n", ColorWhite, ColorCyan, ColorWhite)
+	fmt.Printf("\n%sSelect an option: %s", ColorCyan, ColorReset)
 
+	// Use a buffered channel to read a single character
 	reader := bufio.NewReader(os.Stdin)
 	char, _, err := reader.ReadRune()
 	if err != nil {
@@ -399,7 +428,7 @@ func showDetailedDescription(scriptName string, descriptions Descriptions, scrip
 
 	switch char {
 	case 'v', 'V':
-		viewScriptContent(scriptName)
+		viewScriptWithLess(scriptName)
 		// After viewing script, show the description again
 		showDetailedDescription(scriptName, descriptions, scripts)
 	case 'e', 'E':
