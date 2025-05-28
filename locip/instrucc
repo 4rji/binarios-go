@@ -1,3 +1,1 @@
-#!/usr/bin/env bash
-go mod init locip
-go get github.com/oschwald/geoip2-golang
+ya se movio a un proyecto propio de github
