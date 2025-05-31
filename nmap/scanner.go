@@ -12,6 +12,7 @@ import (
 // Realiza la fase de descubrimiento de hosts
 func performHostDiscovery(state *AppState) {
 	fmt.Println("\033[1;34m[1] Host discovery\033[0m")
+	fmt.Printf("DEBUG: Target before nmap: %s\n", state.target)
 	run("nmap", "-sn", state.target, "-oG", state.scanDir+"/pingsweep.gnmap")
 
 	f, _ := os.Open(state.scanDir + "/pingsweep.gnmap")
@@ -33,7 +34,7 @@ func performHostDiscovery(state *AppState) {
 // Realiza el escaneo de puertos
 func performPortScan(state *AppState) {
 	fmt.Println("\033[1;34m[2] Port scan (fast mode)\033[0m")
-	run("nmap", "-sS", "-sV", "-T4", "--top-ports", "1000", "-iL", 
+	run("nmap", "-sS", "-sV", "-T4", "--top-ports", "1000", "-iL",
 		state.scanDir+"/hosts.txt", "-oN", state.scanDir+"/ports.nmap")
 }
 
@@ -47,8 +48,8 @@ func startScan(state *AppState) {
 		state.htmlPath = state.scanDir + "/report.html"
 
 		// Obtener información de red
-		hostIP, _ := run("sh", "-c", `ip -o -4 addr show scope global | awk '{print $4}' | cut -d/ -f1 | head -n1`)
-		gateway, _ := run("sh", "-c", `ip route | awk '/default/ {print $3; exit}'`)
+		hostIP, _ := run("sh", "-c", `ifconfig en0 | grep "inet " | awk '{print $2}'`) // Assuming en0 is the primary interface
+		gateway, _ := run("sh", "-c", `route -n get default | grep gateway | awk '{print $2}'`)
 
 		// Realizar escaneo
 		performHostDiscovery(state)
@@ -59,7 +60,7 @@ func startScan(state *AppState) {
 		portsData, _ := ioutil.ReadFile(state.scanDir + "/ports.nmap")
 		htmlContent := generateHTMLReport(state, hostIP, gateway, hostsData, portsData)
 		ioutil.WriteFile(state.htmlPath, []byte(htmlContent), 0644)
-		
+
 		// Mostrar popup con resultados
 		showCompletionPopup(state)
 	}()

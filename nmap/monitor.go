@@ -13,9 +13,9 @@ import (
 func startProcessMonitor(state *AppState) {
 	go func() {
 		for {
-			out, _ := run("bash", "-c", "top -b -n 1 | grep nmap")
-			state.app.QueueUpdateDraw(func() { 
-				state.procPane.SetText(out) 
+			out, _ := run("bash", "-c", "ps aux | grep nmap | grep -v grep")
+			state.app.QueueUpdateDraw(func() {
+				state.procPane.SetText(out)
 			})
 			time.Sleep(time.Second)
 		}
@@ -41,7 +41,7 @@ func startPortsFileMonitor(state *AppState) {
 					}
 				}
 			}
-			
+
 			if newest != "" {
 				data, err := ioutil.ReadFile(newest)
 				if err == nil {
@@ -52,14 +52,14 @@ func startPortsFileMonitor(state *AppState) {
 					content := strings.Join(lines, "\n")
 					if content != lastContent {
 						lastContent = content
-						state.app.QueueUpdateDraw(func() { 
-							state.tailPane.SetText(content) 
+						state.app.QueueUpdateDraw(func() {
+							state.tailPane.SetText(content)
 						})
 					}
 				}
 			} else {
-				state.app.QueueUpdateDraw(func() { 
-					state.tailPane.SetText("") 
+				state.app.QueueUpdateDraw(func() {
+					state.tailPane.SetText("")
 				})
 			}
 			time.Sleep(2 * time.Second)
