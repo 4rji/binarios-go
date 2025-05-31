@@ -6,6 +6,17 @@ import (
 )
 
 func main() {
+	// Check for root privileges
+	if os.Geteuid() != 0 {
+		binPath, err := os.Executable()
+		if err != nil {
+			binPath = os.Args[0]
+		}
+		fmt.Printf("\n[!] This program must be run as root.\n")
+		fmt.Printf("    Please run: sudo %s <target>\n\n", binPath)
+		os.Exit(1)
+	}
+
 	// Verificar argumentos
 	if len(os.Args) < 2 {
 		fmt.Println("\nUsage: go run nmapx.go utils.go ui.go monitor.go scanner.go report.go <target>")
