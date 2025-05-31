@@ -9,10 +9,45 @@ import (
 	"time"
 )
 
+// Detecta si el target es un dominio (no IP ni CIDR)
+func isDomain(target string) bool {
+	if strings.Contains(target, "/") {
+		return false // CIDR
+	}
+	parts := strings.Split(target, ".")
+	if len(parts) < 2 {
+		return false // No es dominio
+	}
+	for _, p := range parts {
+		if p == "" {
+			return false
+		}
+	}
+	// Si no es todo numérico, probablemente es dominio
+	if _, err := os.Stat(target); err == nil {
+		return false // Es un archivo
+	}
+	for _, c := range target {
+		if (c < '0' || c > '9') && c != '.' {
+			return true
+		}
+	}
+	return false
+}
+
 // Realiza la fase de descubrimiento de hosts
 func performHostDiscovery(state *AppState) {
 	fmt.Println("\033[1;34m[1] Host discovery\033[0m")
 	fmt.Printf("DEBUG: Target before nmap: %s\n", state.target)
+
+	if isDomain(state.target) {
+		fmt.Println("[!] Target appears to be a domain. Skipping ping sweep and using domain directly.")
+		hf, _ := os.Create(state.scanDir + "/hosts.txt")
+		defer hf.Close()
+		hf.WriteString(state.target + "\n")
+		return
+	}
+
 	run("nmap", "-sn", state.target, "-oG", state.scanDir+"/pingsweep.gnmap")
 
 	f, _ := os.Open(state.scanDir + "/pingsweep.gnmap")
