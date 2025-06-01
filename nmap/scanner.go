@@ -9,6 +9,14 @@ import (
 	"time"
 )
 
+// ScanOptions contiene los parámetros personalizables para el escaneo nmap
+type ScanOptions struct {
+	ScanType    string // Tipo de escaneo (sS, sT, sU, etc)
+	Timing      string // Timing template (T0-T5)
+	TopPorts    string // Número de puertos top a escanear
+	CustomFlags string // Flags personalizados adicionales
+}
+
 // Detecta si el target es un dominio (no IP ni CIDR)
 func isDomain(target string) bool {
 	if strings.Contains(target, "/") {
@@ -67,14 +75,49 @@ func performHostDiscovery(state *AppState) {
 }
 
 // Realiza el escaneo de puertos
-func performPortScan(state *AppState) {
-	fmt.Println("\033[1;34m[2] Port scan (fast mode)\033[0m")
-	run("nmap", "-sS", "-sV", "-T4", "--top-ports", "1000", "-iL",
-		state.scanDir+"/hosts.txt", "-oN", state.scanDir+"/ports.nmap")
+func performPortScan(state *AppState, options *ScanOptions) {
+	fmt.Println("\033[1;34m[2] Port scan\033[0m")
+
+	// Construir los argumentos de nmap
+	args := []string{}
+
+	// Aplicar opciones personalizadas o usar valores por defecto
+	if options != nil {
+		if options.ScanType != "" {
+			args = append(args, "-"+options.ScanType)
+		} else {
+			args = append(args, "-sS") // Default: TCP SYN scan
+		}
+
+		if options.Timing != "" {
+			args = append(args, "-"+options.Timing)
+		} else {
+			args = append(args, "-T4") // Default: Timing template 4
+		}
+
+		if options.TopPorts != "" {
+			args = append(args, "--top-ports", options.TopPorts)
+		} else {
+			args = append(args, "--top-ports", "1000") // Default: Top 1000 ports
+		}
+
+		if options.CustomFlags != "" {
+			args = append(args, strings.Fields(options.CustomFlags)...)
+		}
+	} else {
+		// Valores por defecto si no se especifican opciones
+		args = append(args, "-sS", "-sV", "-T4", "--top-ports", "1000")
+	}
+
+	// Agregar argumentos comunes
+	args = append(args, "-iL", state.scanDir+"/hosts.txt", "-oN", state.scanDir+"/ports.nmap")
+
+	// Ejecutar nmap con los argumentos construidos
+	run("nmap", args...)
 }
 
 // Inicia el proceso de escaneo
-func startScan(state *AppState) {
+func startScan(state *AppState, options *ScanOptions) {
 	go func() {
 		// Configurar directorios de salida
 		ts := time.Now().Format("20060102_150405")
@@ -88,7 +131,7 @@ func startScan(state *AppState) {
 
 		// Realizar escaneo
 		performHostDiscovery(state)
-		performPortScan(state)
+		performPortScan(state, options)
 
 		// Generar reporte
 		hostsData, _ := ioutil.ReadFile(state.scanDir + "/hosts.txt")
@@ -99,4 +142,38 @@ func startScan(state *AppState) {
 		// Mostrar popup con resultados
 		showCompletionPopup(state)
 	}()
+}
+
+// Devuelve el comando nmap que se ejecutaría según las opciones actuales
+func buildNmapCommandPreview(state *AppState) string {
+	options := state.scanOpts
+	args := []string{}
+
+	if options != nil {
+		if options.ScanType != "" {
+			args = append(args, "-"+options.ScanType)
+		} else {
+			args = append(args, "-sS")
+		}
+		if options.Timing != "" {
+			args = append(args, "-"+options.Timing)
+		} else {
+			args = append(args, "-T4")
+		}
+		if options.TopPorts != "" {
+			args = append(args, "--top-ports", options.TopPorts)
+		} else {
+			args = append(args, "--top-ports", "1000")
+		}
+		if options.CustomFlags != "" {
+			args = append(args, strings.Fields(options.CustomFlags)...)
+		}
+	} else {
+		args = append(args, "-sS", "-sV", "-T4", "--top-ports", "1000")
+	}
+
+	// Agregar argumentos comunes (solo como preview, no ruta real)
+	args = append(args, "-iL", "<hosts.txt>", "-oN", "<ports.nmap>")
+
+	return strings.Join(args, " ")
 }

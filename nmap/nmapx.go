@@ -40,9 +40,6 @@ func main() {
 	startPortsFileMonitor(state)
 	setupOutputRedirection(state)
 
-	// Iniciar escaneo
-	startScan(state)
-
 	// Iniciar la UI
 	if err := state.app.SetRoot(state.flex, true).Run(); err != nil {
 		panic(err)
