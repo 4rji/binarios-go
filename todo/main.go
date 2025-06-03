@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -153,21 +154,19 @@ func executeScript(scriptName string, args []string) {
 
 func main() {
 	fmt.Print("\033[H\033[2J")
-	currentQuery := ""
-	if len(os.Args) > 1 {
-		currentQuery = strings.Join(os.Args[1:], " ")
-	}
 
-	// Check if we're doing a content search
-	isContentSearch := false
-	if len(os.Args) > 1 && os.Args[1] == "--search" {
-		isContentSearch = true
-		if len(os.Args) < 3 {
-			fmt.Printf("%sError: Please provide a search pattern%s\n", ColorRed, ColorReset)
-			fmt.Printf("Usage: %s --search <pattern>%s\n", os.Args[0], ColorReset)
-			return
-		}
-		currentQuery = strings.Join(os.Args[2:], " ")
+	// Flags
+	searchFlag := flag.Bool("s", false, "Buscar en el contenido de los archivos")
+	searchFlagLong := flag.Bool("search", false, "Buscar en el contenido de los archivos (long)")
+	flag.Parse()
+	args := flag.Args()
+
+	isContentSearch := *searchFlag || *searchFlagLong
+	currentQuery := ""
+	if isContentSearch && len(args) > 0 {
+		currentQuery = strings.Join(args, " ")
+	} else if !isContentSearch && len(args) > 0 {
+		currentQuery = strings.Join(args, " ")
 	}
 
 	descriptions, err := loadDescriptions()
@@ -232,6 +231,9 @@ func main() {
 			ThemeBlue, ColorReset,
 		)
 		fmt.Print(header)
+		if !isContentSearch {
+			fmt.Printf("%sTip: Use -s or --search to search inside file contents.%s\n\n", ColorYellow, ColorReset)
+		}
 		if isContentSearch {
 			printFancyBox("Search Results", fmt.Sprintf("Files containing '%s':", currentQuery))
 		} else {
