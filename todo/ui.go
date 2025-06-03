@@ -18,12 +18,27 @@ func printSeparator() {
 }
 
 // formatScriptList formats the list of scripts for display
-func formatScriptList(scripts []Script) []string {
+func formatScriptList(scripts []Script, grepMode bool) []string {
 	var result []string
-	for _, script := range scripts {
-		// Formatear el nombre del script en verde y el contenido en blanco
-		line := fmt.Sprintf("%s%s%s\t%s", ColorGreen, script.Name, ColorReset, script.Desc)
-		result = append(result, line)
+	if grepMode {
+		for _, script := range scripts {
+			line := fmt.Sprintf("%s%s%s\t%s", ColorGreen, script.Name, ColorReset, script.Desc)
+			result = append(result, line)
+		}
+	} else {
+		maxNameLength := 0
+		for _, s := range scripts {
+			if len(s.Name) > maxNameLength {
+				maxNameLength = len(s.Name)
+			}
+		}
+		maxNameLength += 2
+		for _, s := range scripts {
+			padding := strings.Repeat(" ", maxNameLength-len(s.Name))
+			formattedName := fmt.Sprintf("%s%s%s%s", ThemeCyan, s.Name, ColorReset, padding)
+			description := fmt.Sprintf("%s%s%s%s", Dim, ThemeBlue, s.Desc, ColorReset)
+			result = append(result, fmt.Sprintf("%s · %s", formattedName, description))
+		}
 	}
 	return result
 }

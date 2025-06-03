@@ -194,7 +194,13 @@ func main() {
 		return
 	}
 
-	scriptChoices := formatScriptList(scripts)
+	var scriptChoices []string
+	if isContentSearch {
+		scriptChoices = formatScriptList(scripts, true)
+	} else {
+		scriptChoices = formatScriptList(scripts, false)
+	}
+
 	sort.Slice(scriptChoices, func(i, j int) bool {
 		cleanA := strings.ReplaceAll(scriptChoices[i], ColorRed, "")
 		cleanA = strings.ReplaceAll(cleanA, ColorReset, "")
