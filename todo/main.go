@@ -250,6 +250,7 @@ func main() {
 				"--nth", "1",
 				"--prompt", "Search> ",
 				"--height=40",
+				"--expect", "f5",
 			}
 			if currentQuery != "" {
 				args = append(args, "--query", currentQuery)
@@ -265,13 +266,25 @@ func main() {
 				currentQuery = ""
 				continue
 			}
-			outStr := string(out)
-			parts := strings.SplitN(outStr, "\n", 2)
-			currentQuery = parts[0]
-			if len(parts) > 1 {
-				selectedScript = strings.TrimRight(parts[1], "\n")
+			outLines := strings.SplitN(string(out), "\n", 3)
+			keyPressed := ""
+			if len(outLines) > 0 {
+				keyPressed = outLines[0]
+			}
+			if len(outLines) > 1 {
+				currentQuery = outLines[1]
+			}
+			if len(outLines) > 2 {
+				selectedScript = strings.TrimRight(outLines[2], "\n")
 			} else {
 				selectedScript = ""
+			}
+			// Detectar si F5 fue presionado
+			if !isContentSearch && keyPressed == "f5" {
+				isContentSearch = true
+				scripts, err2 = searchInFiles("")
+				scriptChoices = formatScriptList(scripts, true)
+				continue
 			}
 		} else {
 			if len(scriptChoices) > 0 {
