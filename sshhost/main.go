@@ -125,7 +125,7 @@ func main() {
 
 	chosen := entries[choice-1]
 	fmt.Printf("\n\033[33mConnecting to \033[0;34m%s\033[0m (\033[0;33m%s\033[0m)...\033[0m\n\n", chosen.Name, chosen.IP)
-	cmd := exec.Command("ssh", chosen.Name)
+	cmd := exec.Command("ssh", "-o", "UserKnownHostsFile=/dev/null", "-o", "StrictHostKeyChecking=no", chosen.Name)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
