@@ -1,0 +1,136 @@
+#!/bin/bash
+
+# Colores
+green="\033[1;32m"
+red="\033[1;31m"
+yellow="\033[1;33m"
+reset="\033[0m"
+
+line() {
+  echo -e "_________________________________________________________\n"
+}
+
+msg_ok() {
+  echo -e "${green}✅  $1${reset}"
+}
+
+msg_fail() {
+  echo -e "${red}❌  $1${reset}"
+}
+
+msg_warn() {
+  echo -e "${yellow}⚠️   $1${reset}"
+}
+
+# Verifica si se está usando Quad9 (HTTP)
+check_quad9_http() {
+  echo "[+]  Checando salida HTTP (on.quad9.net)..."
+  result=$(curl -s https://on.quad9.net/)
+  if echo "$result" | grep -iq "yes"; then
+    msg_ok "Estás usando Quad9 (según on.quad9.net)"
+  else
+    msg_fail "No estás usando Quad9 (según on.quad9.net)"
+  fi
+}
+
+# Consulta directa a Quad9
+check_quad9_dns() {
+  echo "[+]  Probando consulta directa a Quad9 (whoami.quad9.net)..."
+  ip=$(dig +short whoami.quad9.net @9.9.9.9)
+  if [[ -n "$ip" ]]; then
+    msg_ok "Consulta directa llegó. IP pública: $ip"
+  else
+    msg_warn "No hubo respuesta de whoami.quad9.net"
+  fi
+}
+
+# Ver versión del nodo Quad9
+check_version_bind() {
+  echo "[+]  Consultando versión del nodo Quad9..."
+  version=$(dig @9.9.9.9 version.bind txt chaos +short | tr -d '"')
+  if [[ -n "$version" ]]; then
+    msg_ok "Nodo respondió con versión: $version"
+  else
+    msg_warn "Nodo no respondió a version.bind"
+  fi
+}
+
+# Ver el DNS configurado localmente
+check_local_resolver() {
+  echo "[+]  Servidor DNS usado por consultas locales..."
+  resolver=$(dig google.com | grep '^;; SERVER:' | awk '{print $3}')
+  if [[ -n "$resolver" ]]; then
+    echo "🧩  Resolver local en uso: $resolver"
+  else
+    msg_warn "No se detectó servidor DNS local"
+  fi
+}
+
+# Ver la IP externa usada para resolver y si es Quad9
+check_external_ip() {
+  echo "[+]  Detectando IP pública usada por el resolver..."
+  ip=$(dig +short whoami.akamai.net)
+  if [[ -z "$ip" ]]; then
+    msg_warn "No se pudo obtener la IP externa del resolver"
+    return
+  fi
+  echo -e "${green}🌐  IP externa detectada: $ip${reset}"
+
+  echo "[+]  Información WHOIS de $ip:"
+  whois_info=$(whois "$ip")
+  echo "$whois_info" | grep -Ei 'orgname|netname|descr|origin|owner' | sed 's/^/   /'
+
+  if echo "$whois_info" | grep -iqE 'quad9|as19281'; then
+    msg_ok "Resolver DNS detectado pertenece a Quad9 directamente."
+  else
+    msg_warn "Resolver DNS detectado NO pertenece directamente a Quad9."
+  fi
+
+  # Detectar arquitectura y ejecutar el locip correcto
+  arch=$(uname -m)
+  if [[ "$arch" == "arm64" || "$arch" == "aarch64" ]]; then
+    bin="locipm"
+  else
+    bin="locip"
+  fi
+
+  echo -e "[+]  Ejecutando $bin -i $ip...\n"
+  if command -v $bin >/dev/null 2>&1; then
+    $bin -i "$ip"
+  else
+    msg_warn "El binario '$bin' no está disponible en el PATH."
+  fi
+}
+
+# Ejecución secuencial
+line
+check_quad9_http
+line
+check_quad9_dns
+line
+check_version_bind
+line
+check_local_resolver
+line
+check_external_ip
+line
+
+
+# Mostrar IP pública del sistema y ubicación
+echo -e "\n[+]  IP pública del sistema (consulta directa):"
+pubip=$(curl -s https://ifconfig.me || curl -s https://ipinfo.io/ip)
+
+if [[ -n "$pubip" ]]; then
+  echo -e "${green}➡️   $pubip${reset}"
+
+  loc=$(curl -s "https://ipinfo.io/$pubip/json")
+  city=$(echo "$loc" | grep '"city"' | cut -d'"' -f4)
+  region=$(echo "$loc" | grep '"region"' | cut -d'"' -f4)
+  country=$(echo "$loc" | grep '"country"' | cut -d'"' -f4)
+
+  echo -e "${green}📍  City: $city${reset}"
+  echo -e "${green}🌎  Region: $region${reset}"
+  echo -e "${green}🏳️  Country: $country${reset}\n"
+else
+  msg_warn "No se pudo obtener la IP pública del sistema"
+fi
