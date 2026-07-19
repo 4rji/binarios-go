@@ -1,0 +1,7 @@
+heat_template_version: 2018-08-31
+
+description: Placeholder for the future multi-VM mini CCDC lab.
+
+outputs:
+  status:
+    value: not_implemented

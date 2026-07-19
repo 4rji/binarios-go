@@ -1,0 +1,293 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+TARGET="${1:-.}"
+MODULE_NAME="${2:-}"
+GO_CACHE="${GO_CACHE:-/tmp/gocache}"
+
+# Colors
+RESET="\033[0m"
+BOLD="\033[1m"
+DIM="\033[2m"
+RED="\033[31m"
+GREEN="\033[32m"
+YELLOW="\033[33m"
+BLUE="\033[34m"
+MAGENTA="\033[35m"
+CYAN="\033[36m"
+WHITE="\033[97m"
+GRAY="\033[38;5;245m"
+TITLE="\033[38;5;81m"
+TITLE_ACCENT="\033[38;5;220m"
+MENU_NUM="\033[38;5;214m"
+MENU_TEXT="\033[38;5;255m"
+LABEL="\033[38;5;117m"
+VALUE="\033[38;5;230m"
+PROMPT="\033[38;5;117m"
+OPT_GREEN="\033[38;5;82m"
+OPT_RED="\033[38;5;203m"
+OPT_GREEN_ALT="\033[38;5;121m"
+OPT_BLUE="\033[38;5;81m"
+
+get_bin_name() {
+  local target="$1"
+
+  # No argument or "."
+  if [[ "$target" == "." ]]; then
+    basename "$PWD"
+    return
+  fi
+
+  # If it is a .go file => remove extension
+  if [[ "$target" == *.go ]]; then
+    basename "${target%.go}"
+    return
+  fi
+
+  # If it is a path/directory => use final path component
+  basename "$target"
+}
+
+BIN_NAME="$(get_bin_name "$TARGET")"
+
+show_recent_files_on_exit() {
+  echo
+  echo -e "${BOLD}${CYAN}Last 3 entries from ls -ltrh:${RESET}"
+  ls -ltrh | tail -n 3
+}
+
+print_header() {
+  echo -e "${BOLD}${TITLE}========================================${RESET}"
+  echo -e "${BOLD}${TITLE_ACCENT}          Go Build Menu Cool            ${RESET}"
+  echo -e "${BOLD}${TITLE}========================================${RESET}"
+  echo -e "${LABEL}Target${RESET}      ${GRAY}:${RESET} ${VALUE}${TARGET}${RESET}"
+  echo -e "${LABEL}Module name${RESET} ${GRAY}:${RESET} ${VALUE}${MODULE_NAME:-<auto>}${RESET}"
+  echo -e "${LABEL}Binary name${RESET} ${GRAY}:${RESET} ${VALUE}${BIN_NAME}${RESET}"
+  echo
+}
+
+run_cmd() {
+  echo -e "${YELLOW}$ $*${RESET}"
+  "$@"
+  echo -e "${GREEN}OK${RESET}"
+}
+
+run_cmd_in_dir() {
+  local dir="$1"
+  shift
+
+  echo -e "${YELLOW}$ cd ${dir} && $*${RESET}"
+  (
+    cd "$dir"
+    "$@"
+  )
+  echo -e "${GREEN}OK${RESET}"
+}
+
+find_go_mod_dir() {
+  local dir="$PWD"
+
+  while [[ "$dir" != "/" ]]; do
+    if [[ -f "$dir/go.mod" ]]; then
+      printf '%s\n' "$dir"
+      return 0
+    fi
+    dir="$(dirname "$dir")"
+  done
+
+  return 1
+}
+
+get_module_root() {
+  local git_root
+
+  if git_root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+    printf '%s\n' "$git_root"
+    return
+  fi
+
+  printf '%s\n' "$PWD"
+}
+
+module_name_from_remote() {
+  local dir="$1"
+  local remote
+
+  remote="$(git -C "$dir" config --get remote.origin.url 2>/dev/null || true)"
+  [[ -n "$remote" ]] || return 1
+
+  remote="${remote%.git}"
+
+  case "$remote" in
+    git@*:*)
+      remote="${remote#git@}"
+      remote="${remote/:/\/}"
+      ;;
+    ssh://git@*)
+      remote="${remote#ssh://git@}"
+      ;;
+    https://*)
+      remote="${remote#https://}"
+      ;;
+    http://*)
+      remote="${remote#http://}"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+
+  printf '%s\n' "$remote"
+}
+
+get_module_name() {
+  local module_dir="$1"
+
+  if [[ -n "$MODULE_NAME" ]]; then
+    printf '%s\n' "$MODULE_NAME"
+    return
+  fi
+
+  if module_name_from_remote "$module_dir"; then
+    return
+  fi
+
+  basename "$module_dir"
+}
+
+step_1() {
+  echo -e "${BOLD}=== Step 1: Initialize Go module at repo root ===${RESET}"
+  local existing_mod_dir
+  if existing_mod_dir="$(find_go_mod_dir)"; then
+    echo -e "${YELLOW}go.mod already exists in ${existing_mod_dir}, skipping this step.${RESET}"
+    return
+  fi
+
+  local module_dir module_name
+  module_dir="$(get_module_root)"
+  module_name="$(get_module_name "$module_dir")"
+
+  if [[ -z "${module_name}" ]]; then
+    echo -e "${RED}Could not detect MODULE_NAME.${RESET}"
+    echo -e "${DIM}Usage: ./gocom [file.go|.] [module/name]${RESET}"
+    echo -e "${DIM}Example: ./gocom . github.com/user/project${RESET}"
+    return 1
+  fi
+
+  echo -e "${LABEL}Module root${RESET} ${GRAY}:${RESET} ${VALUE}${module_dir}${RESET}"
+  echo -e "${LABEL}Module name${RESET} ${GRAY}:${RESET} ${VALUE}${module_name}${RESET}"
+  run_cmd_in_dir "$module_dir" go mod init "${module_name}"
+}
+
+step_2() {
+  echo -e "${BOLD}=== Step 2: Download dependencies ===${RESET}"
+  run_cmd go get github.com/AlecAivazis/survey/v2
+  run_cmd go mod tidy
+}
+
+step_3() {
+  echo -e "${BOLD}=== Step 3: Build (native, optimized) ===${RESET}"
+  run_cmd go build -trimpath -ldflags "-s -w" -o "${BIN_NAME}" "${TARGET}"
+}
+
+step_4() {
+  echo -e "${BOLD}=== Step 4: Optional UPX compression ===${RESET}"
+  if ! command -v upx >/dev/null 2>&1; then
+    echo -e "${RED}UPX is not installed.${RESET}"
+    echo -e "${DIM}Install it or skip this step.${RESET}"
+    return 0
+  fi
+  run_cmd upx --best --lzma "${BIN_NAME}"
+}
+
+step_5() {
+  echo -e "${BOLD}=== Step 5: Cross-compile Linux amd64 (static, reproducible) ===${RESET}"
+  echo -e "${YELLOW}$ GOCACHE=${GO_CACHE} CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags '-s -w' -o ${BIN_NAME} ${TARGET}${RESET}"
+  GOCACHE="${GO_CACHE}" CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -trimpath -ldflags "-s -w" -o "${BIN_NAME}" "${TARGET}"
+  echo -e "${GREEN}OK${RESET}"
+}
+
+step_6() {
+  echo -e "${BOLD}=== Step 6: Vendor dependencies (offline builds) ===${RESET}"
+  run_cmd go mod vendor
+}
+
+step_7() {
+  echo -e "${BOLD}=== Step 7: Linux amd64 using vendor ===${RESET}"
+  echo -e "${YELLOW}$ GOCACHE=${GO_CACHE} CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=vendor -trimpath -ldflags '-s -w' -o ${BIN_NAME} ${TARGET}${RESET}"
+  GOCACHE="${GO_CACHE}" CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -mod=vendor -trimpath -ldflags "-s -w" -o "${BIN_NAME}" "${TARGET}"
+  echo -e "${GREEN}OK${RESET}"
+}
+
+step_8() {
+  echo -e "${BOLD}=== Step 8: Windows amd64 ===${RESET}"
+  echo -e "${YELLOW}$ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags '-s -w' -o ${BIN_NAME}-windows-amd64.exe ${TARGET}${RESET}"
+  GOOS=windows GOARCH=amd64 CGO_ENABLED=0 \
+    go build -trimpath -ldflags "-s -w" -o "${BIN_NAME}-windows-amd64.exe" "${TARGET}"
+  echo -e "${GREEN}OK${RESET}"
+}
+
+step_all() {
+  if ! find_go_mod_dir >/dev/null 2>&1; then
+    step_1
+  fi
+
+  step_2
+  step_3
+  step_4 || true
+  step_5
+  step_6
+  step_7
+  step_8
+}
+
+show_menu() {
+  print_header
+  echo -e "${MENU_NUM}1)${RESET} ${OPT_GREEN}Build (native, optimized)${RESET}"
+  echo -e "${MENU_NUM}2)${RESET} ${OPT_GREEN}Optional UPX compression${RESET}"
+  echo -e "${MENU_NUM}3)${RESET} ${OPT_RED}Initialize Go module at repo root${RESET}"
+  echo -e "${MENU_NUM}4)${RESET} ${OPT_RED}Download dependencies${RESET}"
+  echo -e "${MENU_NUM}5)${RESET} ${OPT_GREEN_ALT}Cross-compile Linux amd64${RESET}"
+  echo -e "${MENU_NUM}6)${RESET} ${MENU_TEXT}Vendor dependencies${RESET}"
+  echo -e "${MENU_NUM}7)${RESET} ${MENU_TEXT}Linux amd64 using vendor${RESET}"
+  echo -e "${MENU_NUM}8)${RESET} ${OPT_BLUE}Windows amd64${RESET}"
+  echo -e "${MENU_NUM}q)${RESET} ${WHITE}Quit${RESET}"
+  echo
+  echo -ne "${BOLD}${PROMPT}Choose an option [1-8, q]: ${RESET}"
+}
+
+print_command_separator() {
+  echo
+  echo -e "${DIM}************************************************${RESET}"
+  echo
+}
+
+# Verify it is running in an interactive terminal
+if [[ ! -t 0 ]]; then
+  echo "This script requires an interactive terminal."
+  echo "Run it like this: ./script.sh or bash script.sh"
+  exit 1
+fi
+
+trap show_recent_files_on_exit EXIT
+
+while true; do
+  show_menu
+  IFS= read -r -s -n 1 choice
+  echo
+
+  case "${choice}" in
+    1) step_3; print_command_separator ;;
+    2) step_4; print_command_separator ;;
+    3) step_1; print_command_separator ;;
+    4) step_2; print_command_separator ;;
+    5) step_5; print_command_separator ;;
+    6) step_6; print_command_separator ;;
+    7) step_7; print_command_separator ;;
+    8) step_8; print_command_separator ;;
+    q|Q) echo -e "${CYAN}Bye.${RESET}"; exit 0 ;;
+    *) echo -e "${RED}Invalid option.${RESET}" ;;
+  esac
+done

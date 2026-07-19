@@ -1,0 +1,8 @@
+cd /ruta/a/tu/proyecto
+export GO111MODULE=on
+# (si creaste uno global por error)
+rm ~/go/go.mod  
+go mod init nombre-de-tu-modulo
+go get github.com/shirou/gopsutil/v3
+go mod tidy
+go run main.go

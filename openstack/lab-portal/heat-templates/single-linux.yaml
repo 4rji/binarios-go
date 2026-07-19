@@ -1,0 +1,89 @@
+heat_template_version: 2018-08-31
+
+description: Single Linux VM lab template placeholder.
+
+parameters:
+  image:
+    type: string
+    description: Glance image name or ID.
+  flavor:
+    type: string
+    description: Nova flavor name or ID.
+  key_name:
+    type: string
+    description: SSH keypair name.
+  external_network:
+    type: string
+    description: External network for floating IPs.
+
+resources:
+  lab_net:
+    type: OS::Neutron::Net
+
+  lab_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      network: { get_resource: lab_net }
+      cidr: 10.10.10.0/24
+      ip_version: 4
+
+  lab_router:
+    type: OS::Neutron::Router
+    properties:
+      external_gateway_info:
+        network: { get_param: external_network }
+
+  lab_router_interface:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router: { get_resource: lab_router }
+      subnet: { get_resource: lab_subnet }
+
+  ssh_security_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      rules:
+        - protocol: tcp
+          port_range_min: 22
+          port_range_max: 22
+          remote_ip_prefix: 0.0.0.0/0
+        - protocol: icmp
+          remote_ip_prefix: 0.0.0.0/0
+
+  server_port:
+    type: OS::Neutron::Port
+    properties:
+      network: { get_resource: lab_net }
+      security_groups:
+        - { get_resource: ssh_security_group }
+
+  server:
+    type: OS::Nova::Server
+    properties:
+      name: lab-single-linux
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      key_name: { get_param: key_name }
+      networks:
+        - port: { get_resource: server_port }
+
+  floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network: { get_param: external_network }
+
+  floating_ip_association:
+    type: OS::Neutron::FloatingIPAssociation
+    properties:
+      floatingip_id: { get_resource: floating_ip }
+      port_id: { get_resource: server_port }
+
+outputs:
+  vm_name:
+    value: { get_attr: [server, name] }
+  fixed_ip:
+    value: { get_attr: [server, first_address] }
+  floating_ip:
+    value: { get_attr: [floating_ip, floating_ip_address] }
+  ssh_user:
+    value: ubuntu

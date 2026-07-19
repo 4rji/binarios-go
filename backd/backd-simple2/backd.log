@@ -1,0 +1,70 @@
+
+[35m════════════════════════════════════════════════════════════════════════════════[0m
+[32mSCAN @ 2026-05-02 16:23:07[0m
+[35m════════════════════════════════════════════════════════════════════════════════[0m
+
+[32m[+] Connection found[0m
+[33mProcess: [34mGitHub Desktop Helper (PID 26796)[0m
+[33mStatus: [34m[sleep][0m
+[33mUser: [34mhavito[0m
+[33mExec: [34m/Applications/GitHub Desktop.app/Contents/Frameworks/GitHub Desktop Helper.app/Contents/MacOS/GitHub Desktop Helper[0m
+[33mCmd: [34m/Applications/GitHub Desktop.app/Contents/Frameworks/GitHub Desktop Helper.app/Contents/MacOS/GitHub Desktop Helper --type=utility --utility-sub-type=network.mojom.NetworkService --lang=en-US --service-sandbox-type=network --user-data-dir=/Users/havito/Library/Application Support/GitHub Desktop --shared-files --field-trial-handle=1718379636,r,14119522826229580194,13494989270069238152,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708989122997041 --seatbelt-client=34[0m
+[33mLocal: [34m10.1.1.60:52669[0m
+[33mRemote: [34m140.82.113.25:443[0m
+[33mRemote Hostname: [34mlb-140-82-113-25-iad.github.com.[0m
+
+[32m[+] Connection found[0m
+[33mProcess: [34mGitHub Desktop Helper (PID 26796)[0m
+[33mStatus: [34m[sleep][0m
+[33mUser: [34mhavito[0m
+[33mExec: [34m/Applications/GitHub Desktop.app/Contents/Frameworks/GitHub Desktop Helper.app/Contents/MacOS/GitHub Desktop Helper[0m
+[33mCmd: [34m/Applications/GitHub Desktop.app/Contents/Frameworks/GitHub Desktop Helper.app/Contents/MacOS/GitHub Desktop Helper --type=utility --utility-sub-type=network.mojom.NetworkService --lang=en-US --service-sandbox-type=network --user-data-dir=/Users/havito/Library/Application Support/GitHub Desktop --shared-files --field-trial-handle=1718379636,r,14119522826229580194,13494989270069238152,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708989122997041 --seatbelt-client=34[0m
+[33mLocal: [34mfd54:20a4:d33b:b10c:87f:0:1:3a:52670[0m
+[33mRemote: [34m2606:50c0:8000::154:443[0m
+[33mRemote Hostname: [31mNo disponible[0m
+
+[32m[+] Connection found[0m
+[33mProcess: [34mssh (PID 28887)[0m
+[33mStatus: [34m[sleep][0m
+[33mUser: [34mhavito[0m
+[33mExec: [34m/usr/bin/ssh[0m
+[33mCmd: [34mssh -- metro-kali[0m
+[33mLocal: [34m192.168.3.17:52867[0m
+[33mRemote: [34m192.168.3.31:22[0m
+[33mRemote Hostname: [31mNo disponible[0m
+
+
+[35m════════════════════════════════════════════════════════════════════════════════[0m
+[32mSCAN @ 2026-05-02 16:23:12[0m
+[35m════════════════════════════════════════════════════════════════════════════════[0m
+
+[32m[+] Connection found[0m
+[33mProcess: [34mGitHub Desktop Helper (PID 26796)[0m
+[33mStatus: [34m[sleep][0m
+[33mUser: [34mhavito[0m
+[33mExec: [34m/Applications/GitHub Desktop.app/Contents/Frameworks/GitHub Desktop Helper.app/Contents/MacOS/GitHub Desktop Helper[0m
+[33mCmd: [34m/Applications/GitHub Desktop.app/Contents/Frameworks/GitHub Desktop Helper.app/Contents/MacOS/GitHub Desktop Helper --type=utility --utility-sub-type=network.mojom.NetworkService --lang=en-US --service-sandbox-type=network --user-data-dir=/Users/havito/Library/Application Support/GitHub Desktop --shared-files --field-trial-handle=1718379636,r,14119522826229580194,13494989270069238152,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708989122997041 --seatbelt-client=34[0m
+[33mLocal: [34m10.1.1.60:52669[0m
+[33mRemote: [34m140.82.113.25:443[0m
+[33mRemote Hostname: [34mlb-140-82-113-25-iad.github.com.[0m
+
+[32m[+] Connection found[0m
+[33mProcess: [34mGitHub Desktop Helper (PID 26796)[0m
+[33mStatus: [34m[sleep][0m
+[33mUser: [34mhavito[0m
+[33mExec: [34m/Applications/GitHub Desktop.app/Contents/Frameworks/GitHub Desktop Helper.app/Contents/MacOS/GitHub Desktop Helper[0m
+[33mCmd: [34m/Applications/GitHub Desktop.app/Contents/Frameworks/GitHub Desktop Helper.app/Contents/MacOS/GitHub Desktop Helper --type=utility --utility-sub-type=network.mojom.NetworkService --lang=en-US --service-sandbox-type=network --user-data-dir=/Users/havito/Library/Application Support/GitHub Desktop --shared-files --field-trial-handle=1718379636,r,14119522826229580194,13494989270069238152,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708989122997041 --seatbelt-client=34[0m
+[33mLocal: [34mfd54:20a4:d33b:b10c:87f:0:1:3a:52670[0m
+[33mRemote: [34m2606:50c0:8000::154:443[0m
+[33mRemote Hostname: [31mNo disponible[0m
+
+[32m[+] Connection found[0m
+[33mProcess: [34mssh (PID 28887)[0m
+[33mStatus: [34m[sleep][0m
+[33mUser: [34mhavito[0m
+[33mExec: [34m/usr/bin/ssh[0m
+[33mCmd: [34mssh -- metro-kali[0m
+[33mLocal: [34m192.168.3.17:52867[0m
+[33mRemote: [34m192.168.3.31:22[0m
+[33mRemote Hostname: [31mNo disponible[0m
+

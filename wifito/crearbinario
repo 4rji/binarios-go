@@ -1,0 +1,7 @@
+para hacer binario
+
+ 3051  pip install nuitka
+ 3053  sudo apt install patchelf -y
+ 3054  nuitka --onefile programa.py
+
+

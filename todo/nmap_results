@@ -1,0 +1,16 @@
+# Nmap 7.98 scan initiated Fri Dec 26 04:51:15 2025 as: nmap -sCV -p 25 -oN expo3 10.0.4.83
+Nmap scan report for surfito.nido (10.0.4.83)
+Host is up (0.25s latency).
+
+PORT   STATE SERVICE VERSION
+25/tcp open  smtp    Postfix smtpd
+|_ssl-date: TLS randomness does not represent time
+|_smtp-commands: surfito, PIPELINING, SIZE 10240000, VRFY, ETRN, STARTTLS, ENHANCEDSTATUSCODES, 8BITMIME, DSN, SMTPUTF8, CHUNKING
+| ssl-cert: Subject: commonName=surfito
+| Subject Alternative Name: DNS:surfito
+| Not valid before: 2024-12-04T01:15:39
+|_Not valid after:  2034-12-02T01:15:39
+Service Info: Host:  surfito
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+# Nmap done at Fri Dec 26 04:51:19 2025 -- 1 IP address (1 host up) scanned in 3.38 seconds

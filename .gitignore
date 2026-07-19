@@ -1,0 +1,17 @@
+.DS_Store
+backd/go.sum
+backd/go.mod
+backd/backd.log
+backd/backde/go.mod
+backd/backde/go.sum
+backd/backde/backd.log
+comprimidos
+listener/.cache/01/0184915338bd879f702dcc38e1935bb5624dbae61df3471eb24c590dbc7c350c-a
+listener/.cache/
+ssh_fzf/go.mod
+todo/.superpowers
+backd/cmd/backde-legacy/backde.log
+backd/cmd/backd.log
+backd/backde.log
+backd/cmd/backde-legacy/backde.go
+backd/backd-simple/backd.log

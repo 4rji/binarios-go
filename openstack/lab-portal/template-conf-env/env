@@ -1,0 +1,19 @@
+# Use mock until backend/src/providers/openStackHeatProvider.js is implemented.
+LAB_PROVIDER=mock
+CORS_ORIGIN=*
+
+OS_AUTH_TYPE=password
+OS_AUTH_URL=http://192.168.3.32/identity/v3
+OS_IDENTITY_API_VERSION=3
+OS_USERNAME=admin
+OS_PASSWORD=PASSWORD_Admin
+OS_PROJECT_NAME=admin
+OS_USER_DOMAIN_NAME=Default
+OS_PROJECT_DOMAIN_NAME=Default
+OS_REGION_NAME=RegionOne
+
+OPENSTACK_IMAGE=a9c14a82-f892-4b8c-86be-11e8aec78a28
+OPENSTACK_FLAVOR=m1.small
+
+OPENSTACK_KEY_NAME=lab-key
+OPENSTACK_EXTERNAL_NETWORK=public

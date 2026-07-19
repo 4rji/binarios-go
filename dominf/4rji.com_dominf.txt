@@ -1,0 +1,99 @@
+[36m
+Menú:
+ 1) Bypass Cloudflare
+ 2) Port scan ligero
+ 3) Banner grabbing
+ 4) PTR (reverse lookup)
+ 5) Real IP (dig, curl headers)
+ 6) Zone transfer AXFR
+ 7) Subdomain brute-force
+ 8) DNS resolution
+ 0) Salir
+[0m[33m
+Seleccione opción: 
+[0m[35m
+--- Opción seleccionada: 3 ---
+[0m[33m
+Puertos (ej:80,443): 
+[0m[36m-- 443 --
+HTTP/1.1 403 Forbidden
+Server: cloudflare
+Date: Sun, 27 Apr 2025 02:03:19 GMT
+Content-Type: text/html
+Content-Length: 151
+Connection: close
+CF-RAY: 936abe23ce17e775-DEN
+
+<html>
+<head><title>403 Forbidden</title></head>
+<body>
+<center><h1>403 Forbidden</h1></center>
+<hr><center>cloudflare</center>
+</body>
+</html>
+
+[0m[36m
+Menú:
+ 1) Bypass Cloudflare
+ 2) Port scan ligero
+ 3) Banner grabbing
+ 4) PTR (reverse lookup)
+ 5) Real IP (dig, curl headers)
+ 6) Zone transfer AXFR
+ 7) Subdomain brute-force
+ 8) DNS resolution
+ 0) Salir
+[0m[33m
+Seleccione opción: 
+[0m[35m
+--- Opción seleccionada: 2 ---
+[0m[33m
+Puertos (ej:80,443,1-1024) [default 80,443]: 
+[0m[32m[+] open 1
+[0m[32m[+] open 2
+[0m[32m[+] open 3
+[0m[32m[+] open 4
+[0m[32m[+] open 77
+[0m[32m[+] open 80
+[0m[32m[+] open 670
+[0m[32m[+] open 846
+[0m[36m
+Menú:
+ 1) Bypass Cloudflare
+ 2) Port scan ligero
+ 3) Banner grabbing
+ 4) PTR (reverse lookup)
+ 5) Real IP (dig, curl headers)
+ 6) Zone transfer AXFR
+ 7) Subdomain brute-force
+ 8) DNS resolution
+ 0) Salir
+[0m[33m
+Seleccione opción: 
+[0m[35m
+--- Opción seleccionada: 1 ---
+[0m[34m
+[!] Bypass Cloudflare: 4rji.com
+[0m[33m  A 4rji.com -> 172.67.178.222
+[0m[33m  A 4rji.com -> 104.21.17.240
+[0m[33m  AAAA 4rji.com -> 2606:4700:3036::6815:11f0
+[0m[33m  AAAA 4rji.com -> 2606:4700:3037::ac43:b2de
+[0m[32m[✓] Posibles IPs de origen:
+[0m[37m   172.67.178.222
+[0m[37m   104.21.17.240
+[0m[37m   2606:4700:3036::6815:11f0
+[0m[37m   2606:4700:3037::ac43:b2de
+[0m[36m
+Menú:
+ 1) Bypass Cloudflare
+ 2) Port scan ligero
+ 3) Banner grabbing
+ 4) PTR (reverse lookup)
+ 5) Real IP (dig, curl headers)
+ 6) Zone transfer AXFR
+ 7) Subdomain brute-force
+ 8) DNS resolution
+ 0) Salir
+[0m[33m
+Seleccione opción: 
+[0m
