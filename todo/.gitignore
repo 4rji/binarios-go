@@ -1,0 +1,9 @@
+# compiled binary (same name as the directory)
+/todo
+
+# scratch output left behind by scripts run during manual testing
+/OS-type
+/allPorts
+/nmap_results
+/resume
+/.codex

@@ -141,6 +141,13 @@ app.get("/api/deployments/:deploymentId", currentUser, (req, res) => {
   res.json({ deployment });
 });
 
+app.get("/api/resources", currentUser, asyncRoute(async (_req, res) => {
+  const summary = provider.getResourceSummary
+    ? await provider.getResourceSummary()
+    : { status: process.env.LAB_PROVIDER || "mock", source: "unavailable", resources: [], warnings: [] };
+  res.json(summary);
+}));
+
 app.post("/api/deployments/:deploymentId/stop", currentUser, asyncRoute(async (req, res) => {
   const deployment = provider.stopDeployment
     ? await provider.stopDeployment(req.user, req.params.deploymentId)
@@ -177,14 +184,14 @@ app.post("/api/deployments/:deploymentId/reset", currentUser, asyncRoute(async (
   res.json({ deployment });
 }));
 
-app.delete("/api/deployments/:deploymentId", currentUser, (req, res) => {
-  const deployment = provider.destroyDeployment(req.user, req.params.deploymentId);
+app.delete("/api/deployments/:deploymentId", currentUser, asyncRoute(async (req, res) => {
+  const deployment = await provider.destroyDeployment(req.user, req.params.deploymentId);
   if (!deployment) {
     res.status(404).json({ error: "Deployment not found" });
     return;
   }
   res.json({ deployment });
-});
+}));
 
 app.get("/api/admin/deployments", currentUser, (req, res) => {
   if (req.user.role !== "admin") {

@@ -1,11 +1,11 @@
 heat_template_version: 2018-08-31
 
-description: Single Cirros VM smoke-test lab template.
+description: Single VM smoke-test lab template.
 
 parameters:
   image:
     type: string
-    description: Glance Cirros image name or ID.
+    description: Glance image name or ID.
   flavor:
     type: string
     description: Nova flavor name or ID.
@@ -35,7 +35,7 @@ resources:
   server:
     type: OS::Nova::Server
     properties:
-      name: lab-cirros-smoke
+      name: lab-smoke-test
       image: { get_param: image }
       flavor: { get_param: flavor }
       networks:
@@ -53,6 +53,6 @@ outputs:
   novnc_console_url:
     value: { get_attr: [server, console_urls, novnc] }
   ssh_user:
-    value: cirros
+    value: debian
   ssh_password:
-    value: gocubsgo
+    value: image default or configured key

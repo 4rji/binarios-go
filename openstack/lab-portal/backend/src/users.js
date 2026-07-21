@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 
 const users = [
   { id: "user-havi", username: "havi", password: "metro123", role: "student" },
-  { id: "user-connor", username: "connor", password: "metro123", role: "student" }
+  { id: "user-amber", username: "amber", password: "amber123", role: "student" },
+  { id: "user-connor", username: "connor", password: "connor234", role: "student" }
 ];
 
 const sessions = new Map();

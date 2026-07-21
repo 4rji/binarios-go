@@ -137,9 +137,8 @@ func main() {
 		"--border-label", " ❯ SSH ",
 		"--prompt", "  ",
 		"--pointer", "▌",
-		"--color", "bg+:#1e2030,fg+:#c8d3f5,hl+:#82aaff,hl:#82aaff,border:#589ed7,header:#636da6,footer:#636da6,pointer:#ff966c,prompt:#82aaff,label:#82aaff,info:#636da6",
-		"--header", "  ↵ ssh",
-		"--footer", "  D dig   G gping   M mtr\n  P trip  T tracepath   R traceroute",
+		"--color", "bg+:#1e2030,fg+:#c8d3f5,hl+:#82aaff,hl:#82aaff,border:#589ed7,header:#636da6,pointer:#ff966c,prompt:#82aaff,label:#82aaff,info:#636da6",
+		"--header", "  ↵ ssh\n  D dig   G gping   M mtr\n  P trip  T tracepath   R traceroute",
 		"--preview-window", previewWindow(""),
 		"--preview", previewCmd(""),
 		"--bind", "ctrl-s:toggle-sort",
@@ -248,6 +247,7 @@ func writeHostLine(w io.Writer, h SSHHost, cw colWidths) {
 		pColor = "\033[2;37m"
 		uColor = "\033[2;37m"
 	}
+	aColor = subnetHostNameColor(hn, h.Online, aColor)
 
 	display := fmt.Sprintf("%s%s%-*s%s  %s%-*s%s  %s%-*s%s  %s%-*s%s",
 		icon,
@@ -258,6 +258,50 @@ func writeHostLine(w io.Writer, h SSHHost, cw colWidths) {
 	)
 
 	fmt.Fprintf(w, "%s\t%s\t%s\n", h.Alias, statusKey, display)
+}
+
+func subnetHostNameColor(hostname string, online bool, fallback string) string {
+	ip := net.ParseIP(hostname).To4()
+	if ip == nil {
+		return fallback
+	}
+	hue := (int(ip[0])*53 + int(ip[1])*29 + int(ip[2])*43 + int(ip[2])*int(ip[2])*7) % 360
+	r, g, b := hsvToRGB(hue, 70, 95)
+	if online {
+		return fmt.Sprintf("\033[1;38;2;%d;%d;%dm", r, g, b)
+	}
+	return fmt.Sprintf("\033[2;38;2;%d;%d;%dm", r, g, b)
+}
+
+func hsvToRGB(h, s, v int) (int, int, int) {
+	c := v * s / 100
+	x := c * (60 - absInt(h%120-60)) / 60
+	m := v - c
+
+	var r, g, b int
+	switch {
+	case h < 60:
+		r, g, b = c, x, 0
+	case h < 120:
+		r, g, b = x, c, 0
+	case h < 180:
+		r, g, b = 0, c, x
+	case h < 240:
+		r, g, b = 0, x, c
+	case h < 300:
+		r, g, b = x, 0, c
+	default:
+		r, g, b = c, 0, x
+	}
+
+	return (r + m) * 255 / 100, (g + m) * 255 / 100, (b + m) * 255 / 100
+}
+
+func absInt(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
 }
 
 func parseSSHConfig() ([]SSHHost, error) {

@@ -82,6 +82,35 @@ function createOpenStackFetchRecorder() {
         return jsonResponse({ flavors: [{ id: "flavor-id", name: "m1.tiny" }] });
       }
 
+      if (request.url.endsWith("/compute/v2.1/project-id/limits")) {
+        return jsonResponse({
+          limits: {
+            absolute: {
+              maxTotalCores: 32,
+              totalCoresUsed: 6,
+              maxTotalRAMSize: 65536,
+              totalRAMUsed: 12288,
+              maxTotalInstances: 20,
+              totalInstancesUsed: 3
+            }
+          }
+        });
+      }
+
+      if (request.url.endsWith("/compute/v2.1/project-id/os-hypervisors/statistics")) {
+        return jsonResponse({
+          hypervisor_statistics: {
+            vcpus: 64,
+            vcpus_used: 10,
+            memory_mb: 131072,
+            memory_mb_used: 32768,
+            local_gb: 2000,
+            local_gb_used: 280,
+            running_vms: 4
+          }
+        });
+      }
+
       if (request.url.endsWith("/networking/v2.0/networks?name=private")) {
         return jsonResponse({ networks: [{ id: "network-id", name: "private" }] });
       }
@@ -133,7 +162,8 @@ await test("public users never include passwords", () => {
   const users = getPublicUsers();
   const usernames = users.map((candidate) => candidate.username);
 
-  assert.deepEqual(usernames, ["havi", "connor"]);
+  assert.ok(usernames.includes("havi"));
+  assert.ok(usernames.includes("connor"));
   assert.ok(users.every((candidate) => !("password" in candidate)));
 });
 
@@ -148,7 +178,7 @@ await test("heat template parameter names are extracted from yaml", () => {
   ]);
 });
 
-await test("cirros smoke template does not require an ssh key", () => {
+await test("smoke template does not require an ssh key", () => {
   const templateSource = readFileSync(resolve(repositoryRoot, "heat-templates/single-cirros.yaml"), "utf8");
 
   assert.deepEqual(extractTemplateParameterNames(templateSource), [
@@ -181,6 +211,85 @@ await test("openstack heat parameters come from scoped environment variables", (
     flavor: "m1.small",
     key_name: "lab-key",
     external_network: "public"
+  });
+});
+
+await test("splunk lab uses Oracle Linux direct Nova parameters", () => {
+  const provider = new OpenStackHeatProvider({
+    env: {
+      LAB_CCDC_SPLUNK_PARAM_IMAGE: "Oracle Linux 9",
+      LAB_CCDC_SPLUNK_PARAM_FLAVOR: "splunk.large",
+      LAB_CCDC_SPLUNK_PARAM_NETWORK: "private"
+    }
+  });
+  const lab = provider.getLab("ccdc-splunk");
+  const templateSource = readFileSync(resolve(repositoryRoot, lab.heatTemplatePath), "utf8");
+
+  assert.equal(lab.heatTemplatePath, "heat-templates/single-cirros.yaml");
+  assert.deepEqual(buildHeatParameters({
+    env: provider.env,
+    lab,
+    templateSource
+  }), {
+    image: "Oracle Linux 9",
+    flavor: "splunk.large",
+    network: "private"
+  });
+});
+
+await test("ecom lab uses existing Glance image and custom flavor defaults", () => {
+  const provider = new OpenStackHeatProvider({ env: {} });
+  const lab = provider.getLab("ccdc-ecom-ubuntu-24");
+  const templateSource = readFileSync(resolve(repositoryRoot, lab.heatTemplatePath), "utf8");
+
+  assert.equal(lab.heatTemplatePath, "heat-templates/single-linux.yaml");
+  assert.deepEqual(lab.resources, {
+    vcpus: 3,
+    ramMb: 4096,
+    diskGb: 50,
+    networks: 2,
+    servers: 1
+  });
+  assert.deepEqual(buildHeatParameters({
+    env: provider.env,
+    lab,
+    templateSource
+  }), {
+    image: "ecom",
+    flavor: "ecom-3c-4g-50g"
+  });
+});
+
+await test("ecom lab reuses the Splunk network for direct Nova deploys", async () => {
+  let directCreateRequest = null;
+  const provider = new OpenStackHeatProvider({
+    env: {
+      LAB_OPENSTACK_DEPLOYMENT_MODE: "nova",
+      LAB_CCDC_SPLUNK_PARAM_NETWORK: "private",
+      LAB_STACK_POLL_INTERVAL_MS: "60000"
+    },
+    client: {
+      async createDirectServer(request) {
+        directCreateRequest = request;
+        return { id: "server-id", name: request.serverName };
+      }
+    }
+  });
+  const deployment = provider.deployLab(user, "ccdc-ecom-ubuntu-24");
+  const originalInfo = console.info;
+  console.info = () => {};
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  } finally {
+    console.info = originalInfo;
+  }
+
+  const next = provider.getDeployment(user, deployment.id);
+  assert.equal(next.serverId, "server-id");
+  assert.deepEqual(directCreateRequest.parameters, {
+    image: "ecom",
+    flavor: "ecom-3c-4g-50g",
+    network: "private"
   });
 });
 
@@ -242,6 +351,39 @@ await test("openstack client accepts cli application credential auth type", () =
   });
 });
 
+await test("openstack client can summarize server resource usage", async () => {
+  const recorder = createOpenStackFetchRecorder();
+  const client = new OpenStackHeatClient({
+    env: {
+      OS_AUTH_URL: "http://openstack.example.local/identity/v3",
+      OS_AUTH_TYPE: "v3applicationcredential",
+      OS_APPLICATION_CREDENTIAL_ID: "credential-id",
+      OS_APPLICATION_CREDENTIAL_SECRET: "credential-secret"
+    },
+    fetchImpl: recorder.fetchImpl
+  });
+
+  const summary = await client.resourceSummary();
+
+  assert.equal(summary.source, "hypervisor-statistics");
+  assert.deepEqual(summary.resources.find((metric) => metric.key === "vcpus"), {
+    key: "vcpus",
+    label: "vCPU",
+    used: 10,
+    total: 64,
+    available: 54,
+    unit: "cores"
+  });
+  assert.deepEqual(summary.resources.find((metric) => metric.key === "disk"), {
+    key: "disk",
+    label: "Disk",
+    used: 280,
+    total: 2000,
+    available: 1720,
+    unit: "GB"
+  });
+});
+
 await test("openstack client can create a Nova server without Heat", async () => {
   const recorder = createOpenStackFetchRecorder();
   const client = new OpenStackHeatClient({
@@ -279,12 +421,45 @@ await test("openstack client can create a Nova server without Heat", async () =>
   });
 });
 
+await test("openstack client can let Nova choose a default network", async () => {
+  const recorder = createOpenStackFetchRecorder();
+  const client = new OpenStackHeatClient({
+    env: {
+      OS_AUTH_URL: "http://openstack.example.local/identity/v3",
+      OS_AUTH_TYPE: "v3applicationcredential",
+      OS_APPLICATION_CREDENTIAL_ID: "credential-id",
+      OS_APPLICATION_CREDENTIAL_SECRET: "credential-secret"
+    },
+    fetchImpl: recorder.fetchImpl
+  });
+
+  await client.createDirectServer({
+    serverName: "lab-havi-cirros",
+    parameters: {
+      image: "cirros",
+      flavor: "m1.tiny"
+    }
+  });
+  const createRequest = recorder.requests.find((request) => (
+    request.method === "POST" && request.url.endsWith("/compute/v2.1/project-id/servers")
+  ));
+  const networkRequests = recorder.requests.filter((request) => request.url.includes("/networking/v2.0/networks"));
+
+  assert.equal(networkRequests.length, 0);
+  assert.deepEqual(createRequest.body.server, {
+    name: "lab-havi-cirros",
+    imageRef: "image-id",
+    flavorRef: "flavor-id",
+    metadata: {}
+  });
+});
+
 await test("openstack provider falls back to Nova when Heat is missing in auto mode", async () => {
   let directCreateRequest = null;
   const provider = new OpenStackHeatProvider({
     env: {
-      LAB_CIRROS_SMOKE_TEST_PARAM_IMAGE: "cirros",
-      LAB_HEAT_FLAVOR: "m1.tiny",
+      LAB_CIRROS_SMOKE_TEST_PARAM_IMAGE: "Debian 13 Trixie",
+      LAB_HEAT_FLAVOR: "m1.small",
       LAB_CIRROS_SMOKE_TEST_PARAM_NETWORK: "private",
       LAB_STACK_POLL_INTERVAL_MS: "60000"
     },
@@ -332,8 +507,158 @@ await test("openstack provider falls back to Nova when Heat is missing in auto m
   assert.equal(next.openStackEngine, "nova");
   assert.equal(next.serverId, "server-id");
   assert.deepEqual(directCreateRequest.parameters, {
-    image: "cirros",
-    flavor: "m1.tiny",
+    image: "Debian 13 Trixie",
+    flavor: "m1.small",
     network: "private"
   });
+});
+
+await test("openstack provider can override the Nova smoke test server name", async () => {
+  const provider = new OpenStackHeatProvider({
+    env: {
+      LAB_OPENSTACK_DEPLOYMENT_MODE: "nova",
+      LAB_CIRROS_SMOKE_TEST_SERVER_NAME: "vm-prueba",
+      LAB_CIRROS_SMOKE_TEST_PARAM_IMAGE: "Debian 13 Trixie",
+      LAB_CIRROS_SMOKE_TEST_PARAM_FLAVOR: "m1.small",
+      LAB_CIRROS_SMOKE_TEST_PARAM_NETWORK: "private",
+      LAB_STACK_POLL_INTERVAL_MS: "60000"
+    },
+    client: {
+      async createDirectServer(request) {
+        return { id: "server-id", name: request.serverName };
+      }
+    }
+  });
+
+  const originalInfo = console.info;
+  console.info = () => {};
+  try {
+    const deployment = provider.deployLab(user, "cirros-smoke-test");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const next = provider.getDeployment(user, deployment.id);
+
+    assert.equal(next.heatStackName, "vm-prueba");
+    assert.equal(next.serverId, "server-id");
+    assert.equal(next.outputs.find((output) => output.key === "vm_name")?.value, "vm-prueba");
+  } finally {
+    console.info = originalInfo;
+  }
+});
+
+await test("openstack provider destroys all Nova servers matching a fixed deployment name", async () => {
+  const deletedServerIds = [];
+  const provider = new OpenStackHeatProvider({
+    env: {
+      LAB_OPENSTACK_DEPLOYMENT_MODE: "nova",
+      LAB_STACK_POLL_INTERVAL_MS: "60000"
+    },
+    client: {
+      async listServersByName(serverName) {
+        assert.equal(serverName, "vm-prueba");
+        return [
+          { id: "tracked-server-id", name: "vm-prueba" },
+          { id: "orphan-server-id", name: "vm-prueba" }
+        ];
+      },
+      async deleteServer(serverId) {
+        deletedServerIds.push(serverId);
+      },
+      async showServer() {
+        const error = new Error("not found");
+        error.openStackStatus = 404;
+        throw error;
+      }
+    }
+  });
+  const lab = provider.getLab("cirros-smoke-test");
+  const deployment = {
+    id: "deployment-id",
+    lab,
+    user,
+    provider: "openstack",
+    openStackEngine: "nova",
+    heatStackName: "vm-prueba",
+    heatStackId: null,
+    serverId: "tracked-server-id",
+    status: "ready",
+    outputs: [],
+    lastError: null,
+    expiresAt: "2099-01-01T00:00:00Z",
+    createdAt: "2099-01-01T00:00:00Z",
+    updatedAt: "2099-01-01T00:00:00Z",
+    deletedAt: null
+  };
+
+  provider.deployments.set(deployment.id, deployment);
+  const next = await provider.destroyDeployment(user, deployment.id);
+
+  assert.equal(next.status, "deleted");
+  assert.deepEqual(deletedServerIds.sort(), ["orphan-server-id", "tracked-server-id"]);
+});
+
+await test("openstack provider treats Nova start on active server as already ready", async () => {
+  const provider = new OpenStackHeatProvider({
+    env: {
+      LAB_OPENSTACK_DEPLOYMENT_MODE: "nova",
+      LAB_STACK_POLL_INTERVAL_MS: "60000"
+    },
+    client: {
+      async serverAction(serverId, action) {
+        assert.equal(serverId, "server-id");
+        assert.equal(action, "os-start");
+        const error = new Error("OpenStack Nova request failed (409)");
+        error.openStackStatus = 409;
+        error.body = {
+          conflictingRequest: {
+            code: 409,
+            message: "Cannot 'start' instance server-id while it is in vm_state active"
+          }
+        };
+        throw error;
+      },
+      async showServer(serverId) {
+        assert.equal(serverId, "server-id");
+        return {
+          id: "server-id",
+          name: "vm-prueba",
+          status: "ACTIVE",
+          addresses: {}
+        };
+      },
+      async createNoVncConsole() {
+        return "https://console.example.local";
+      }
+    }
+  });
+  const deployment = {
+    id: "deployment-id",
+    lab: provider.getLab("cirros-smoke-test"),
+    user,
+    provider: "openstack",
+    openStackEngine: "nova",
+    heatStackName: "vm-prueba",
+    heatStackId: null,
+    serverId: "server-id",
+    status: "stopped",
+    outputs: [],
+    lastError: null,
+    expiresAt: "2099-01-01T00:00:00Z",
+    createdAt: "2099-01-01T00:00:00Z",
+    updatedAt: "2099-01-01T00:00:00Z",
+    deletedAt: null
+  };
+
+  provider.deployments.set(deployment.id, deployment);
+  const originalError = console.error;
+  console.error = () => {};
+  try {
+    provider.startDeployment(user, deployment.id);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const next = provider.getDeployment(user, deployment.id);
+
+    assert.equal(next.status, "ready");
+    assert.equal(next.lastError, null);
+  } finally {
+    console.error = originalError;
+  }
 });

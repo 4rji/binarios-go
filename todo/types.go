@@ -54,13 +54,3 @@ func (d *DetailedDescription) UnmarshalJSON(data []byte) error {
 
 // Descriptions is a map of script names to their detailed descriptions
 type Descriptions map[string]DetailedDescription
-
-// Icons for different script types
-var scriptIcons = map[string]string{
-	"net":     "•",
-	"system":  "•",
-	"file":    "•",
-	"user":    "•",
-	"config":  "•",
-	"default": "•",
-}

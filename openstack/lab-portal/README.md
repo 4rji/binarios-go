@@ -1,74 +1,74 @@
 # OpenStack Lab Portal
 
-Proyecto npm para un portal de laboratorios OpenStack que corre como web app y como app de escritorio con Electron.
+Npm project for an OpenStack lab portal that runs as a web app and as an Electron desktop app.
 
-## Estructura
+## Structure
 
 ```text
 lab-portal/
-├── backend/         # API Express y proveedor mock
+├── backend/         # Express API and mock provider
 ├── frontend/        # React + Vite
-├── electron/        # Shell Electron seguro
-├── heat-templates/  # Plantillas Heat iniciales
-└── package.json     # npm workspaces y scripts comunes
+├── electron/        # Safe Electron shell
+├── heat-templates/  # Initial Heat templates
+└── package.json     # npm workspaces and common scripts
 ```
 
-## Requisitos
+## Requirements
 
-- Node.js 22.12 o superior.
+- Node.js 22.12 or newer.
 - npm.
-- OpenStack no es necesario para el primer MVP; el backend arranca con proveedor `mock`.
+- OpenStack is not required for the first MVP; the backend starts with the `mock` provider.
 
-## Instalacion
+## Installation
 
 ```bash
 cd lab-portal
 npm install
 ```
 
-## Desarrollo
+## Development
 
-API y web en paralelo:
+API and web together:
 
 ```bash
 npm run dev
 ```
 
-Solo API:
+API only:
 
 ```bash
 npm run dev:api
 ```
 
-Solo web:
+Web only:
 
 ```bash
 npm run dev:web
 ```
 
-Electron en modo desarrollo, despues de levantar la web:
+Electron in development mode, after starting the web app:
 
 ```bash
 npm run dev:desktop
 ```
 
-Electron usa el API configurado por `LAB_API_URL` o, si no se define, `http://127.0.0.1:3001`.
-Para desarrollo normal puedes correr todo con:
+Electron uses the API configured by `LAB_API_URL` or, if unset, `http://127.0.0.1:3001`.
+For normal development, you can run everything with:
 
 ```bash
 npm run dev
 ```
 
-Y en otra terminal abrir la ventana Electron:
+Then open the Electron window in another terminal:
 
 ```bash
 npm run dev:desktop
 ```
 
-Por defecto, la API y Vite escuchan en `0.0.0.0`, para que sean accesibles desde otros equipos de la red. Abre la app con:
+By default, the API and Vite listen on `0.0.0.0` so they are reachable from other machines on the network. Open the app with:
 
 ```bash
-http://<IP_DEL_SERVIDOR>:5173
+http://<SERVER_IP>:5173
 ```
 
 ## Build
@@ -78,17 +78,17 @@ npm run build:web
 npm run build:desktop
 ```
 
-El paquete de escritorio queda en `dist-desktop/`. La app empaquetada carga la UI construida en
-`frontend/dist/` y llama al API en `LAB_API_URL` o `http://127.0.0.1:3001`. Antes de usar la app
-empaquetada, deja el API corriendo:
+The desktop package is written to `dist-desktop/`. The packaged app loads the built UI from
+`frontend/dist/` and calls the API at `LAB_API_URL` or `http://127.0.0.1:3001`. Before using the
+packaged app, keep the API running:
 
 ```bash
 npm run start:api
 ```
 
-## Configuracion
+## Configuration
 
-Variables utiles:
+Useful variables:
 
 ```bash
 PORT=3001
@@ -100,9 +100,9 @@ LAB_PORTAL_URL=http://127.0.0.1:5173
 LAB_API_URL=http://127.0.0.1:3001
 ```
 
-Para permitir llamadas directas a la API desde cualquier origen durante desarrollo, usa `CORS_ORIGIN=*`. No uses ese valor en produccion.
+To allow direct API calls from any origin during development, use `CORS_ORIGIN=*`. Do not use that value in production.
 
-La app no llama OpenStack desde el frontend ni desde Electron. Para usar OpenStack, el backend se autentica con Keystone usando una application credential y crea stacks en Heat:
+The app does not call OpenStack from the frontend or Electron. To use OpenStack, the backend authenticates with Keystone using an application credential and creates stacks in Heat:
 
 ```bash
 LAB_PROVIDER=openstack
@@ -113,17 +113,17 @@ OS_APPLICATION_CREDENTIAL_ID=<application-credential-id>
 OS_APPLICATION_CREDENTIAL_SECRET=<application-credential-secret>
 ```
 
-`LAB_OPENSTACK_DEPLOYMENT_MODE=auto` intenta crear stacks con Heat. Si Keystone no publica Heat/orchestration en
-el catalogo de servicios, el backend cae a despliegue directo con Nova para laboratorios de una sola VM que tengan
-parametros `image`, `flavor` y `network`. Tambien puedes forzarlo con:
+`LAB_OPENSTACK_DEPLOYMENT_MODE=auto` tries to create stacks with Heat. If Keystone does not publish Heat/orchestration in
+the service catalog, the backend falls back to direct Nova deployment for single-VM labs that provide
+`image`, `flavor`, and `network` parameters. You can also force it with:
 
 ```bash
 LAB_OPENSTACK_DEPLOYMENT_MODE=nova
 ```
 
-Si Heat existe pero no esta en el catalogo, define `LAB_HEAT_ENDPOINT`. Para despliegue directo Nova, usa
-`LAB_NOVA_NETWORK=<tenant-network-name-or-id>` cuando la plantilla/laboratorio no provee un parametro `network`.
-El provider tambien acepta estos parametros comunes para plantillas Heat:
+If Heat exists but is not in the catalog, set `LAB_HEAT_ENDPOINT`. For direct Nova deployment, use
+`LAB_NOVA_NETWORK=<tenant-network-name-or-id>` when the template/lab does not provide a `network` parameter.
+The provider also accepts these common parameters for Heat templates:
 
 ```bash
 LAB_HEAT_IMAGE=<glance-image-name-or-id>
@@ -132,19 +132,27 @@ LAB_HEAT_KEY_NAME=<keypair-name>
 LAB_HEAT_EXTERNAL_NETWORK=<external-network-name-or-id>
 ```
 
-Puedes sobreescribirlos por plataforma o laboratorio con variables como `LAB_LINUX_IMAGE`,
-`LAB_WINDOWS_FLAVOR` o `LAB_CCDC_WKST_UBUNTU_24_PARAM_IMAGE`. Para una prueba rapida con la
-plantilla deployable incluida:
+You can override them by platform or lab with variables such as `LAB_LINUX_IMAGE`,
+`LAB_WINDOWS_FLAVOR`, or `LAB_CCDC_WKST_UBUNTU_24_PARAM_IMAGE`. For a quick test with the
+included deployable template:
 
 ```bash
 LAB_CCDC_WKST_UBUNTU_24_HEAT_TEMPLATE=heat-templates/single-linux.yaml
 ```
 
-Nota: `heat-templates/mini-ccdc.yaml` sigue siendo un placeholder multi-VM. Para crear maquinas reales,
-apunta el laboratorio a `single-linux.yaml` o reemplaza `mini-ccdc.yaml` por una plantilla Heat completa.
+The Ecom Ubuntu 24 lab is wired to `heat-templates/single-linux.yaml` and defaults to the
+`ecom` Glance image and `ecom-3c-4g-50g` Nova flavor. The image must already exist in Glance;
+create the flavor if it is not present:
 
-## Siguiente fase
+```bash
+openstack flavor create ecom-3c-4g-50g --vcpus 3 --ram 4096 --disk 50
+```
 
-1. Persistir usuarios y despliegues en SQLite.
-2. Validar plantillas Heat desde una allowlist mas estricta.
-3. Agregar limpieza por TTL y limites por usuario.
+Note: `heat-templates/mini-ccdc.yaml` is still a multi-VM placeholder. To create real machines,
+point the lab to `single-linux.yaml` or replace `mini-ccdc.yaml` with a complete Heat template.
+
+## Next Phase
+
+1. Persist users and deployments in SQLite.
+2. Validate Heat templates from a stricter allowlist.
+3. Add TTL cleanup and per-user limits.

@@ -380,7 +380,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			_ = copyToClipboard(scriptName)
 			m.pendingExec = scriptName
 			return m, tea.Quit
-		case " ", "v":
+		case " ":
 			return m.openSourcePreview()
 		case "up", "k":
 			return m.scrollDetail(-1)
@@ -477,13 +477,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// fall through to typing-starts-search in browse mode
 
 	case " ":
-		if m.mode == modeDetail {
-			return m.openSourcePreview()
-		}
-		return m, nil
-
-	case "v":
 		return m.openSourcePreview()
+
 	}
 
 	// typing in browse mode starts search
@@ -806,7 +801,7 @@ func (m Model) detailLines() []string {
 	}
 	keysRow := strings.Join([]string{
 		kb("↑/↓", "scroll"),
-		kb("v", "view source"),
+		kb("space", "view source"),
 		kb("r", "back"),
 		kb("↵", "execute"),
 	}, "   ")
@@ -880,7 +875,11 @@ func (m Model) View() string {
 		}
 		modeSt := inBg(pink, " ["+modeLabel+"] ", colorBgSubHdr)
 		inputArea := inBg(cyan, "◈ ", colorBgSubHdr) + m.input.View()
-		hitsStr := inBg(muted, fmt.Sprintf("  %d hits", len(m.filtered)), colorBgSubHdr)
+		posStr := ""
+		if len(m.filtered) > 0 {
+			posStr = fmt.Sprintf(" · %d/%d", m.cursor+1, len(m.filtered))
+		}
+		hitsStr := inBg(muted, fmt.Sprintf("  %d hits%s", len(m.filtered), posStr), colorBgSubHdr)
 		hintStr := inBg(muted, "  [ESC] cancel", colorBgSubHdr)
 		sb.WriteString(bgFill(modeSt+inputArea+hitsStr+hintStr, w, colorBgSubHdr) + "\n")
 		sb.WriteString(sep(w, colorScriptName))
@@ -894,15 +893,20 @@ func (m Model) View() string {
 
 		// tip line
 		tips := inBg(muted, "  ", colorBgBase) +
-			inBg(muted, "[SPC/V]", colorBgBase) + inBg(white, " preview", colorBgBase) +
+			inBg(muted, "[SPC]", colorBgBase) + inBg(white, " preview", colorBgBase) +
 			inBg(muted, "  [↵]", colorBgBase) + inBg(white, " open", colorBgBase) +
 			inBg(muted, "  [^C]", colorBgBase) + inBg(white, " exit", colorBgBase)
 		sb.WriteString(bgFill(tips, w, colorBgBase) + "\n")
 
 		// subheader band
 		count := fmt.Sprintf("%d loaded", len(m.filtered))
+		pos := ""
+		if len(m.filtered) > 0 {
+			pos = fmt.Sprintf("  ·  %d/%d", m.cursor+1, len(m.filtered))
+		}
 		subHdr := inBg(cyan, " ◈ SCRIPTS ", colorBgSubHdr) +
-			inBg(muted, " "+count, colorBgSubHdr)
+			inBg(muted, " "+count, colorBgSubHdr) +
+			inBg(white, pos, colorBgSubHdr)
 		sb.WriteString(bgFill(subHdr, w, colorBgSubHdr) + "\n")
 		sb.WriteString(sep(w, colorPurple))
 	}
@@ -919,10 +923,28 @@ func (m Model) View() string {
 		nameW = 32
 	}
 
+	total := len(m.filtered)
 	end := m.offset + vis
-	if end > len(m.filtered) {
-		end = len(m.filtered)
+	if end > total {
+		end = total
 	}
+
+	// scrollbar: reserve the rightmost column when the list overflows
+	showBar := total > vis && w > 6
+	contentW := w
+	thumbStart, thumbEnd := 0, 0
+	if showBar {
+		contentW = w - 1
+		thumbSize := vis * vis / total
+		if thumbSize < 1 {
+			thumbSize = 1
+		}
+		if maxOffset := total - vis; maxOffset > 0 {
+			thumbStart = m.offset * (vis - thumbSize) / maxOffset
+		}
+		thumbEnd = thumbStart + thumbSize
+	}
+	thumbStyle := lipgloss.NewStyle().Foreground(colorAccent)
 
 	for i := m.offset; i < end; i++ {
 		s := m.filtered[i]
@@ -932,7 +954,7 @@ func (m Model) View() string {
 			desc = singleLineText(d.ShortDesc)
 		}
 
-		maxDesc := w - nameW - 10
+		maxDesc := contentW - nameW - 10
 		if maxDesc < 0 {
 			maxDesc = 0
 		}
@@ -943,15 +965,17 @@ func (m Model) View() string {
 
 		namePad := strings.Repeat(" ", max(0, nameW-len([]rune(name))))
 
+		var rowBg lipgloss.Color
+		var content string
 		if i == m.cursor {
-			bg := colorBgSelected
-			cursor := inBg(pink, "▶▶ ", bg)
-			nameStr := inBg(lipgloss.NewStyle().Foreground(colorAccent).Bold(true), highlightMatch(name, m.query), bg)
-			padStr := inBg(muted, namePad, bg)
-			descStr := inBg(lipgloss.NewStyle().Foreground(colorText), "  "+desc, bg)
-			sb.WriteString(bgFill(cursor+nameStr+padStr+descStr, w, bg) + "\n")
+			rowBg = colorBgSelected
+			cursor := inBg(pink, "▶▶ ", rowBg)
+			nameStr := inBg(lipgloss.NewStyle().Foreground(colorAccent).Bold(true), highlightMatch(name, m.query), rowBg)
+			padStr := inBg(muted, namePad, rowBg)
+			descStr := inBg(lipgloss.NewStyle().Foreground(colorText), "  "+desc, rowBg)
+			content = cursor + nameStr + padStr + descStr
 		} else {
-			rowBg := colorBgRow
+			rowBg = colorBgRow
 			if i%2 == 0 {
 				rowBg = colorBgRowAlt
 			}
@@ -959,8 +983,19 @@ func (m Model) View() string {
 			nameStr := inBg(lipgloss.NewStyle().Foreground(colorText), highlightMatch(name, m.query), rowBg)
 			padStr := inBg(muted, namePad, rowBg)
 			descStr := inBg(lipgloss.NewStyle().Foreground(colorMuted), "  "+desc, rowBg)
-			sb.WriteString(bgFill(idx+nameStr+padStr+descStr, w, rowBg) + "\n")
+			content = idx + nameStr + padStr + descStr
 		}
+
+		row := bgFill(content, contentW, rowBg)
+		if showBar {
+			vi := i - m.offset
+			if vi >= thumbStart && vi < thumbEnd {
+				row += inBg(thumbStyle, "█", rowBg)
+			} else {
+				row += inBg(muted, "│", rowBg)
+			}
+		}
+		sb.WriteString(row + "\n")
 	}
 
 	return sb.String()
@@ -978,11 +1013,4 @@ func highlightMatch(text, query string) string {
 	}
 	hl := lipgloss.NewStyle().Foreground(colorPurple).Bold(true)
 	return text[:idx] + hl.Render(text[idx:idx+len(q)]) + text[idx+len(q):]
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

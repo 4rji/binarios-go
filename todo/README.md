@@ -1,103 +1,58 @@
-# Todo - Script Selector
+# todo
 
-A Go-based script selector tool that helps you find and execute scripts from your bin directory with intelligent search capabilities.
+An interactive terminal UI to discover, preview and run the scripts in
+`/opt/4rji/bin/`. Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea).
 
-## Features
+## What it does
 
-- **Intelligent Search**: Search scripts by name or description with word boundary matching
-- **Multiple Sources**: Searches in script files, README.md, and descriptions.json
-- **Fuzzy Finder**: Uses fzf for interactive script selection
-- **Detailed Descriptions**: Shows detailed information about each script
-- **Script Execution**: Execute scripts directly or copy commands to clipboard
+- Lists every script found in `/opt/4rji/bin/` (from `README.md`, `descriptions.json`
+  and executable files in the directory).
+- Fuzzy-ish search over names and descriptions, with a content-search mode that
+  greps inside the script files.
+- Detail view per script: short + detailed description, plus an image preview
+  from `/opt/4rji/img-bin/{name}.{webp,png}` rendered with `chafa`.
+- View the source of a script in a pager (`bat` if available, otherwise `less`/`cat`).
+- Run the selected script; the command is copied to the clipboard first.
 
-## Installation
+## Build & run
 
-### Using go install (Recommended)
-
-```bash
-go install github.com/4rji/binarios-go/todo@latest
+```sh
+cd todo
+go build -o todo     # build the binary
+go run .             # run the interactive UI
+go test ./...        # run tests
 ```
 
-### From Source
+## Keybindings
 
-```bash
-git clone https://github.com/4rji/binarios-go.git
-cd binarios-go/todo
-go build -o todo
-```
+| Key            | Action                                  |
+| -------------- | --------------------------------------- |
+| type / `/`     | start searching (name + description)    |
+| `↑`/`↓`, `j`/`k` | move selection                        |
+| `PgUp`/`PgDn`  | page up / down                          |
+| `Enter`        | open detail view (then `Enter` to run)  |
+| `Space`        | preview the script source in a pager    |
+| `Esc`          | cancel search / leave detail view       |
+| `Ctrl+C`       | quit                                    |
 
-## Usage
-
-### Basic Usage
-
-```bash
-# List all available scripts
-todo
-
-# Search for scripts containing "tunnel"
-todo -s tunnel
-
-# Search with long flag
-todo --search tunnel
-```
-
-### Interactive Mode
-
-When you run `todo` without arguments, you'll see an interactive interface where you can:
-
-- Type to search for scripts
-- Use F5 to switch to content search mode
-- Press Enter to select a script
-- View detailed descriptions and execute scripts
-
-## Search Features
-
-The tool searches in multiple sources:
-
-1. **Script Files**: Searches the content of script files in `/opt/4rji/bin/`
-2. **README.md**: Searches script names and descriptions from the README file
-3. **Word Boundaries**: Uses precise word boundary matching to avoid false positives
-
-## Requirements
-
-- Go 1.24.1 or later
-- fzf (for interactive selection)
-- Scripts located in `/opt/4rji/bin/`
-- README.md in `/opt/4rji/bin/README.md`
-- Optional: descriptions.json in `/opt/4rji/bin/descriptions.json`
-
-## Configuration
-
-The tool expects the following directory structure:
+## Data sources
 
 ```
 /opt/4rji/bin/
-├── README.md
-├── .todoignore (optional)
-├── descriptions.json (optional)
-└── [your scripts]
+├── README.md            # script names + short descriptions (one per line)
+├── descriptions.json    # optional detailed descriptions
+├── .todoignore          # optional list of scripts to hide (one per line, # comments)
+└── [executable scripts]
+
+/opt/4rji/img-bin/
+└── [name].{webp,png}    # optional preview images
 ```
 
-### Excluding scripts
+## Optional external tools
 
-To hide binaries from the program, create `/opt/4rji/bin/.todoignore` with one binary name per line:
+Resolved at runtime with `exec.LookPath`; missing ones degrade gracefully.
 
-```text
-nmapX
-pingm
-winPEASx64.exe
-```
-
-Blank lines and lines starting with `#` are ignored.
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
-## License
-
-This project is part of the 4rji/binarios-go collection.
+- `chafa` — image previews in the detail view.
+- `bat` — syntax-highlighted source preview (falls back to `less`/`cat`).
+- `grep` — content-search mode.
+- `pbcopy` (macOS) / `xclip` or `xsel` (Linux) — clipboard.

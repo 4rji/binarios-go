@@ -6,13 +6,16 @@ import {
   Columns2,
   KeyRound,
   LogIn,
+  LogOut,
   Monitor,
+  Moon,
   Network,
   Play,
   Power,
   RotateCcw,
   Server,
   Shield,
+  Sun,
   Terminal,
   Trash2,
   RectangleHorizontal
@@ -57,8 +60,10 @@ const statusLabels = {
   resetting: "Resetting"
 };
 
+const startingStatuses = new Set(["queued", "creating", "resetting"]);
+
 const catalogTabs = [
-  { id: "test", label: "Prueba" },
+  { id: "test", label: "Test" },
   { id: "linux", label: "Linux" },
   { id: "windows", label: "Windows" }
 ];
@@ -89,11 +94,49 @@ function fmtValue(value) {
   return JSON.stringify(value);
 }
 
+function fmtResourceValue(value, unit) {
+  if (value === null || value === undefined) return "Unavailable";
+  if (unit === "MB") {
+    const gb = value / 1024;
+    return `${Number.isInteger(gb) ? gb : gb.toFixed(1)} GB`;
+  }
+  return `${value} ${unit}`;
+}
+
+function resourcePercent(metric) {
+  if (!metric || metric.used === null || metric.total === null || metric.total <= 0) return null;
+  return Math.min(100, Math.max(0, Math.round((metric.used / metric.total) * 100)));
+}
+
+function fmtElapsed(startedAt, now = Date.now()) {
+  const started = new Date(startedAt).getTime();
+  if (!Number.isFinite(started)) return "0s";
+
+  const totalSeconds = Math.max(0, Math.floor((now - started) / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes === 0) return `${seconds}s`;
+  return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+}
+
+function isStartingDeployment(deployment) {
+  return startingStatuses.has(deployment?.status);
+}
+
 function consoleUrl(deployment) {
   const consoleOutput = deployment?.outputs?.find((output) => (
-    ["console_url", "novnc_url", "vnc_url"].includes(output.key)
+    ["console_url", "novnc_console_url", "novnc_url", "vnc_url"].includes(output.key)
   ));
-  return consoleOutput?.value || deployment?.consoleUrl || "";
+  const url = consoleOutput?.value || deployment?.consoleUrl || "";
+  if (!url) return "";
+
+  try {
+    const parsedUrl = new URL(url, window.location.origin);
+    parsedUrl.searchParams.set("resize", "scale");
+    return parsedUrl.toString();
+  } catch {
+    return url;
+  }
 }
 
 function guideStepKey(deploymentId, tabId, stepIndex) {
@@ -117,6 +160,12 @@ export default function App() {
   const [completedGuideSteps, setCompletedGuideSteps] = useState({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarHovered, setSidebarHovered] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  const [resourceSummary, setResourceSummary] = useState(null);
+  const [consoleMode, setConsoleMode] = useState("normal");
+  const [darkMode, setDarkMode] = useState(() => (
+    window.localStorage.getItem("labPortalDarkMode") !== "false"
+  ));
 
   const activeCatalogLabs = useMemo(
     () => labs.filter((lab) => (lab.category || "linux") === catalogTab),
@@ -129,18 +178,27 @@ export default function App() {
   const activeDeployments = deployments.filter((deployment) => deployment.status !== "deleted");
   const selectedDeployment = activeDeployments.find((deployment) => deployment.id === selectedDeploymentId)
     || activeDeployments[0];
+  const hasStartingDeployments = activeDeployments.some(isStartingDeployment);
   const guideTabs = selectedDeployment?.lab?.hardeningGuide || [];
   const selectedGuideTab = guideTabs.find((tab) => tab.id === guideTabId) || guideTabs[0];
   const viewLabel = viewLabels[view] || viewLabels.active;
+  const theaterActive = view === "guide" && consoleMode === "theater";
 
   async function loadData(currentToken = authToken) {
     if (!currentToken) return;
-    const [labsPayload, deploymentsPayload] = await Promise.all([
+    const [labsPayload, deploymentsPayload, resourcesPayload] = await Promise.all([
       api.request("/api/labs", {}, currentToken),
-      api.request("/api/deployments", {}, currentToken)
+      api.request("/api/deployments", {}, currentToken),
+      api.request("/api/resources", {}, currentToken).catch((err) => ({
+        status: "unavailable",
+        source: "unavailable",
+        resources: [],
+        warnings: [err.message]
+      }))
     ]);
     setLabs(labsPayload.labs);
     setDeployments(deploymentsPayload.deployments);
+    setResourceSummary(resourcesPayload);
     setSelectedLabId((current) => {
       if (labsPayload.labs.some((lab) => lab.id === current)) return current;
       return labsPayload.labs.find((lab) => (lab.category || "linux") === catalogTab)?.id
@@ -198,6 +256,21 @@ export default function App() {
     }
   }
 
+  async function logout() {
+    const token = authToken;
+    setError("");
+    setUser(null);
+    setAuthToken("");
+    setView("catalog");
+
+    if (!token) return;
+    try {
+      await api.request("/api/auth/logout", { method: "POST" }, token);
+    } catch {
+      // The local session is already cleared; server cleanup can fail if the token expired.
+    }
+  }
+
   async function deploy(labId) {
     setBusyLabId(labId);
     setError("");
@@ -236,6 +309,12 @@ export default function App() {
   }, [user, authToken]);
 
   useEffect(() => {
+    if (!user || !hasStartingDeployments) return undefined;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [user, hasStartingDeployments]);
+
+  useEffect(() => {
     if (!selectedDeployment) return;
     const tabs = selectedDeployment.lab?.hardeningGuide || [];
     if (!tabs.length) {
@@ -254,6 +333,16 @@ export default function App() {
     }, 10000);
     return () => clearTimeout(timer);
   }, [user, sidebarHovered, view, catalogTab, selectedDeploymentId]);
+
+  useEffect(() => {
+    window.localStorage.setItem("labPortalDarkMode", String(darkMode));
+  }, [darkMode]);
+
+  useEffect(() => {
+    if (view !== "guide" && consoleMode !== "normal") {
+      setConsoleMode("normal");
+    }
+  }, [view, consoleMode]);
 
   if (!user) {
     return (
@@ -291,65 +380,88 @@ export default function App() {
   }
 
   return (
-    <main className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-      <aside
-        className={`sidebar ${sidebarCollapsed ? "collapsed" : ""}`}
-        onMouseEnter={() => {
-          setSidebarHovered(true);
-          setSidebarCollapsed(false);
-        }}
-        onMouseLeave={() => setSidebarHovered(false)}
-      >
-        <div className="brand">
-          <div className="brand-copy">
-            <strong>OpenStack</strong>
-            <span>Lab Portal</span>
+    <main className={`app-shell ${darkMode ? "dark-mode" : ""} ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${theaterActive ? "theater-active" : ""}`}>
+      {!theaterActive && (
+        <aside
+          className={`sidebar ${sidebarCollapsed ? "collapsed" : ""}`}
+          onMouseEnter={() => {
+            setSidebarHovered(true);
+            setSidebarCollapsed(false);
+          }}
+          onMouseLeave={() => setSidebarHovered(false)}
+        >
+          <div className="brand">
+            <div className="brand-copy">
+              <strong>OpenStack</strong>
+              <span>Lab Portal</span>
+            </div>
+            <button
+              className="icon-button sidebar-toggle"
+              title={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+              onClick={() => setSidebarCollapsed((current) => !current)}
+              aria-label={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+              aria-expanded={!sidebarCollapsed}
+            >
+              {sidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+            </button>
           </div>
-          <button
-            className="icon-button sidebar-toggle"
-            title={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
-            onClick={() => setSidebarCollapsed((current) => !current)}
-            aria-label={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
-            aria-expanded={!sidebarCollapsed}
-          >
-            {sidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-          </button>
-        </div>
-        <nav>
-          <button className={view === "catalog" ? "active" : ""} onClick={() => setView("catalog")}>
-            <Server size={18} />
-            <span className="sidebar-label">Catalog</span>
-          </button>
-          <button className={view === "active" ? "active" : ""} onClick={() => setView("active")}>
-            <Activity size={18} />
-            <span className="sidebar-label">Active</span>
-          </button>
-          <button
-            className={view === "guide" ? "active" : ""}
-            onClick={() => openDeploymentGuide()}
-            disabled={!selectedDeployment}
-          >
-            <Terminal size={18} />
-            <span className="sidebar-label">Guide</span>
-          </button>
-          <button className={view === "admin" ? "active" : ""} onClick={() => setView("admin")}>
-            <Monitor size={18} />
-            <span className="sidebar-label">Admin</span>
-          </button>
-        </nav>
-        <footer>
-          <span className="sidebar-label">{user.username}</span>
-        </footer>
-      </aside>
+          <nav>
+            <button className={view === "catalog" ? "active" : ""} onClick={() => setView("catalog")}>
+              <Server size={18} />
+              <span className="sidebar-label">Catalog</span>
+            </button>
+            <button className={view === "active" ? "active" : ""} onClick={() => setView("active")}>
+              <Activity size={18} />
+              <span className="sidebar-label">Active</span>
+            </button>
+            <button
+              className={view === "guide" ? "active" : ""}
+              onClick={() => openDeploymentGuide()}
+              disabled={!selectedDeployment}
+            >
+              <Terminal size={18} />
+              <span className="sidebar-label">Guide</span>
+            </button>
+            <button className={view === "admin" ? "active" : ""} onClick={() => setView("admin")}>
+              <Monitor size={18} />
+              <span className="sidebar-label">Admin</span>
+            </button>
+          </nav>
+          <footer>
+            <div className="user-card">
+              <span className="user-initial" aria-hidden="true">{user.username.slice(0, 1).toUpperCase()}</span>
+              <span className="sidebar-label user-copy">
+                <strong>{user.username}</strong>
+                <small>{user.role}</small>
+              </span>
+            </div>
+            <button className="icon-button logout-button" onClick={logout} title="Logout" aria-label="Logout">
+              <LogOut size={18} />
+            </button>
+          </footer>
+        </aside>
+      )}
 
       <section className="workspace">
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">{viewLabel.eyebrow}</p>
-            <h2>{viewLabel.title}</h2>
-          </div>
-          {error && <p className="error">{error}</p>}
-        </header>
+        {!theaterActive && (
+          <header className="topbar">
+            <div>
+              <p className="eyebrow">{viewLabel.eyebrow}</p>
+              <h2>{viewLabel.title}</h2>
+            </div>
+            <div className="topbar-actions">
+              {error && <p className="error">{error}</p>}
+              <button
+                className="icon-button theme-toggle"
+                onClick={() => setDarkMode((current) => !current)}
+                title={darkMode ? "Light mode" : "Dark mode"}
+                aria-label={darkMode ? "Light mode" : "Dark mode"}
+              >
+                {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
+            </div>
+          </header>
+        )}
 
         {view === "catalog" && (
           <div className={`catalog-layout ${osThemeClass(catalogTab)}`}>
@@ -510,6 +622,9 @@ export default function App() {
                   <div><dt>Expires</dt><dd>{fmtDate(selectedDeployment.expiresAt)}</dd></div>
                   <div><dt>Updated</dt><dd>{fmtDate(selectedDeployment.updatedAt)}</dd></div>
                 </dl>
+                {isStartingDeployment(selectedDeployment) && (
+                  <VmStartupMarker deployment={selectedDeployment} now={now} />
+                )}
                 {selectedDeployment.lastError && (
                   <section className="error-panel">
                     <span>Last error</span>
@@ -528,6 +643,12 @@ export default function App() {
                   ))}
                 </div>
                 <div className="actions">
+                  {consoleUrl(selectedDeployment) && (
+                    <button onClick={() => window.open(consoleUrl(selectedDeployment), "_blank", "noopener,noreferrer")}>
+                      <Monitor size={18} />
+                      Open console
+                    </button>
+                  )}
                   <button onClick={() => openDeploymentGuide(selectedDeployment)}>
                     <Terminal size={18} />
                     Open guide
@@ -551,31 +672,45 @@ export default function App() {
         )}
 
         {view === "guide" && (
-          <GuideWorkspace
-            deployment={selectedDeployment}
-            guideTabs={guideTabs}
-            selectedGuideTab={selectedGuideTab}
-            completedGuideSteps={completedGuideSteps}
-            onSelectGuideTab={setGuideTabId}
-            onToggleGuideStep={toggleGuideStep}
-          />
+          <div className="guide-workspace-shell">
+            {!theaterActive && activeDeployments.length > 0 && (
+              <div className="guide-deployment-tabs" role="tablist" aria-label="Open deployments">
+                {activeDeployments.map((deployment) => (
+                  <button
+                    key={deployment.id}
+                    className={selectedDeployment?.id === deployment.id ? "active" : ""}
+                    onClick={() => selectDeployment(deployment)}
+                    role="tab"
+                    aria-selected={selectedDeployment?.id === deployment.id}
+                    title={deployment.heatStackName}
+                  >
+                    <span>{deployment.heatStackName}</span>
+                    <StatusPill status={deployment.status} />
+                  </button>
+                ))}
+              </div>
+            )}
+            <GuideWorkspace
+              deployment={selectedDeployment}
+              guideTabs={guideTabs}
+              selectedGuideTab={selectedGuideTab}
+              completedGuideSteps={completedGuideSteps}
+              consoleMode={consoleMode}
+              now={now}
+              onSelectGuideTab={setGuideTabId}
+              onSetConsoleMode={setConsoleMode}
+              onToggleGuideStep={toggleGuideStep}
+            />
+          </div>
         )}
 
         {view === "admin" && (
-          <section className="admin-grid">
-            <div>
-              <span className="metric-value">{deployments.length}</span>
-              <span>Total deployments</span>
-            </div>
-            <div>
-              <span className="metric-value">{activeDeployments.length}</span>
-              <span>Active deployments</span>
-            </div>
-            <div>
-              <span className="metric-value">{labs.length}</span>
-              <span>Enabled labs</span>
-            </div>
-          </section>
+          <AdminPanel
+            deployments={deployments}
+            activeDeployments={activeDeployments}
+            labs={labs}
+            resourceSummary={resourceSummary}
+          />
         )}
       </section>
     </main>
@@ -584,6 +719,89 @@ export default function App() {
 
 function StatusPill({ status }) {
   return <span className={`status ${status}`}>{statusLabels[status] || status}</span>;
+}
+
+function AdminPanel({ deployments, activeDeployments, labs, resourceSummary }) {
+  const resources = resourceSummary?.resources || [];
+
+  return (
+    <section className="admin-panel">
+      <div className="admin-grid">
+        <div>
+          <span className="metric-value">{deployments.length}</span>
+          <span>Total deployments</span>
+        </div>
+        <div>
+          <span className="metric-value">{activeDeployments.length}</span>
+          <span>Active deployments</span>
+        </div>
+        <div>
+          <span className="metric-value">{labs.length}</span>
+          <span>Enabled labs</span>
+        </div>
+      </div>
+
+      <section className="resource-panel">
+        <div className="deployment-heading">
+          <div>
+            <p className="eyebrow">Capacity</p>
+            <h3>Server resources</h3>
+          </div>
+          <span className="platform-pill">{resourceSummary?.source || "loading"}</span>
+        </div>
+        <div className="resource-grid">
+          {resources.length === 0 && <p className="muted">Resource usage is not available yet.</p>}
+          {resources.map((metric) => {
+            const percent = resourcePercent(metric);
+            return (
+              <div className="resource-card" key={metric.key}>
+                <div className="resource-card-heading">
+                  <strong>{metric.label}</strong>
+                  <span>{percent === null ? "N/A" : `${percent}% used`}</span>
+                </div>
+                <div className="resource-bar" aria-hidden="true">
+                  <span style={{ width: `${percent ?? 0}%` }} />
+                </div>
+                <dl>
+                  <div><dt>Used</dt><dd>{fmtResourceValue(metric.used, metric.unit)}</dd></div>
+                  <div><dt>Available</dt><dd>{fmtResourceValue(metric.available, metric.unit)}</dd></div>
+                  <div><dt>Total</dt><dd>{fmtResourceValue(metric.total, metric.unit)}</dd></div>
+                </dl>
+              </div>
+            );
+          })}
+        </div>
+        {(resourceSummary?.warnings || []).map((warning) => (
+          <p className="resource-warning" key={warning}>{warning}</p>
+        ))}
+      </section>
+    </section>
+  );
+}
+
+function VmStartupMarker({ deployment, now }) {
+  const startedAt = deployment.createdAt || deployment.updatedAt;
+  const elapsed = fmtElapsed(startedAt, now);
+  const label = deployment.status === "queued" ? "Request sent" : "Starting VM";
+
+  return (
+    <section className="startup-marker" aria-live="polite">
+      <div className="startup-marker-main">
+        <span className="startup-spinner" aria-hidden="true" />
+        <div>
+          <strong>{label}</strong>
+          <span>{deployment.heatStackName}</span>
+        </div>
+      </div>
+      <div className="startup-marker-meta">
+        <span>{elapsed}</span>
+        <span>{statusLabels[deployment.status] || deployment.status}</span>
+      </div>
+      <div className="startup-progress" aria-hidden="true">
+        <span />
+      </div>
+    </section>
+  );
 }
 
 function LabTopologyPreview() {
@@ -599,11 +817,12 @@ function GuideWorkspace({
   guideTabs,
   selectedGuideTab,
   completedGuideSteps,
+  consoleMode,
+  now,
   onSelectGuideTab,
+  onSetConsoleMode,
   onToggleGuideStep
 }) {
-  const [consoleMode, setConsoleMode] = useState("normal");
-
   if (!deployment) {
     return (
       <section className="guide-empty">
@@ -624,15 +843,23 @@ function GuideWorkspace({
     <div className={`guide-layout ${themeClass} ${consoleMode === "theater" ? "theater" : "normal"}`}>
       <section className="terminal-panel">
         <div className="terminal-toolbar">
-          <div>
-            <p className="eyebrow">Console</p>
-            <h3>{deployment.lab.name}</h3>
+          <div className="terminal-title-row">
+            {consoleMode === "theater" && (
+              <button className="terminal-menu-button" onClick={() => onSetConsoleMode("normal")} title="Exit theater">
+                <ChevronLeft size={16} />
+                Menu
+              </button>
+            )}
+            <div>
+              <p className="eyebrow">Console</p>
+              <h3>{deployment.lab.name}</h3>
+            </div>
           </div>
           <div className="console-toolbar-actions">
             <StatusPill status={deployment.status} />
             <button
               className={consoleMode === "normal" ? "active" : ""}
-              onClick={() => setConsoleMode("normal")}
+              onClick={() => onSetConsoleMode("normal")}
               title="Normal mode"
             >
               <Columns2 size={16} />
@@ -640,7 +867,7 @@ function GuideWorkspace({
             </button>
             <button
               className={consoleMode === "theater" ? "active" : ""}
-              onClick={() => setConsoleMode("theater")}
+              onClick={() => onSetConsoleMode("theater")}
               title="Theater mode"
             >
               <RectangleHorizontal size={16} />
@@ -650,6 +877,9 @@ function GuideWorkspace({
         </div>
 
         <div className="terminal-screen" aria-label="Machine noVNC console">
+          {isStartingDeployment(deployment) && (
+            <VmStartupMarker deployment={deployment} now={now} />
+          )}
           <div className="console-frame">
             {activeConsoleUrl ? (
               <iframe

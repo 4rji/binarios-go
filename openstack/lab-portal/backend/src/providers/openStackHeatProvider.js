@@ -168,6 +168,19 @@ function stackNameFor(user, lab, shortId) {
   return `lab-${username}-${slug}-${shortId}`.slice(0, 255);
 }
 
+function deploymentNameFor(env, user, lab, shortId) {
+  const labKey = envKeySuffix(lab.slug || lab.id);
+  const platformKey = envKeySuffix(lab.platform);
+  return firstEnv(env, [
+    `LAB_${labKey}_SERVER_NAME`,
+    `LAB_${labKey}_STACK_NAME`,
+    `LAB_${platformKey}_SERVER_NAME`,
+    `LAB_${platformKey}_STACK_NAME`,
+    "LAB_OPENSTACK_SERVER_NAME",
+    "LAB_OPENSTACK_STACK_NAME"
+  ]) || stackNameFor(user, lab, shortId);
+}
+
 function safeResolveTemplatePath(templatePath) {
   const absolutePath = resolve(repositoryRoot, templatePath);
   const relativePath = relative(repositoryRoot, absolutePath);
@@ -260,10 +273,18 @@ function parameterAliasEnvNames(parameterName) {
   return aliases[parameterKey] || [];
 }
 
+function novaNetworkParameter(parameters = {}) {
+  return parameters.network
+    || parameters.network_id
+    || parameters.network_name
+    || parameters.private_network;
+}
+
 export function buildHeatParameters({ env, lab, templateSource }) {
   const parameterNames = extractTemplateParameterNames(templateSource);
   const labKey = envKeySuffix(lab.slug || lab.id);
   const platformKey = envKeySuffix(lab.platform);
+  const defaultParameters = lab.heatParameters || {};
   const globalParameters = readJsonObject(env.LAB_HEAT_PARAMETERS, "LAB_HEAT_PARAMETERS");
   const labParameters = readJsonObject(env[`LAB_${labKey}_HEAT_PARAMETERS`], `LAB_${labKey}_HEAT_PARAMETERS`);
 
@@ -284,7 +305,9 @@ export function buildHeatParameters({ env, lab, templateSource }) {
               `LAB_${platformKey}_${alias.replace(/^LAB_HEAT_/, "")}`,
               alias
             ])
-          ]);
+          ])
+          ?? defaultParameters[name]
+          ?? defaultParameters[parameterKey];
 
         return [name, value];
       })
@@ -413,6 +436,12 @@ function deploymentErrorMessage(error) {
   return [error.message, statusText, bodyText].filter(Boolean).join(" - ");
 }
 
+function isNovaAlreadyActiveStartConflict(error) {
+  if (error?.openStackStatus !== 409) return false;
+  const bodyText = stringifyErrorBody(error.body).toLowerCase();
+  return bodyText.includes("cannot 'start' instance") && bodyText.includes("vm_state active");
+}
+
 function missingHeatEndpointError() {
   const error = new Error("Keystone catalog did not include an orchestration endpoint; set LAB_HEAT_ENDPOINT");
   error.code = "OPENSTACK_HEAT_ENDPOINT_MISSING";
@@ -442,6 +471,22 @@ function directServerOutputs(server, consoleUrl = "") {
     { key: "addresses", value: server?.addresses, description: "Nova addresses", sensitive: false },
     { key: "novnc_console_url", value: consoleUrl, description: "noVNC console", sensitive: false }
   ].filter((output) => output.value !== undefined && output.value !== null && output.value !== "");
+}
+
+function resourceMetric({ key, label, used, total, unit }) {
+  const numericUsed = Number(used);
+  const numericTotal = Number(total);
+  const safeUsed = Number.isFinite(numericUsed) ? numericUsed : null;
+  const safeTotal = Number.isFinite(numericTotal) && numericTotal >= 0 ? numericTotal : null;
+
+  return {
+    key,
+    label,
+    used: safeUsed,
+    total: safeTotal,
+    available: safeUsed !== null && safeTotal !== null ? Math.max(0, safeTotal - safeUsed) : null,
+    unit
+  };
 }
 
 export class OpenStackHeatClient {
@@ -800,10 +845,11 @@ export class OpenStackHeatClient {
   }
 
   async createDirectServer({ serverName, parameters, metadata = {} }) {
+    const networkIdentifier = novaNetworkParameter(parameters);
     const [imageRef, flavorRef, networkId] = await Promise.all([
       this.resolveImageId(parameters.image || parameters.image_id || parameters.image_name),
       this.resolveFlavorId(parameters.flavor || parameters.flavor_id || parameters.flavor_name || parameters.instance_type),
-      this.resolveNetworkId(parameters.network || parameters.network_id || parameters.network_name || parameters.private_network)
+      networkIdentifier ? this.resolveNetworkId(networkIdentifier) : null
     ]);
 
     const body = await this.computeRequest("/servers", {
@@ -814,7 +860,7 @@ export class OpenStackHeatClient {
           imageRef,
           flavorRef,
           key_name: parameters.key_name || parameters.ssh_key_name,
-          networks: [{ uuid: networkId }],
+          networks: networkId ? [{ uuid: networkId }] : undefined,
           metadata: compactObject(metadata)
         })
       })
@@ -825,6 +871,11 @@ export class OpenStackHeatClient {
 
   async showServer(serverId) {
     return (await this.computeRequest(`/servers/${encodeURIComponent(serverId)}`)).server;
+  }
+
+  async listServersByName(serverName) {
+    const body = await this.computeRequest(`/servers/detail?name=${encodeURIComponent(serverName)}`);
+    return (body.servers || []).filter((server) => server.name === serverName);
   }
 
   async deleteServer(serverId) {
@@ -908,6 +959,58 @@ export class OpenStackHeatClient {
       heatError
     };
   }
+
+  async resourceSummary() {
+    const token = await this.authenticate();
+    const [limitsBody, hypervisorBody] = await Promise.all([
+      this.computeRequest("/limits").catch((error) => ({ error })),
+      this.computeRequest("/os-hypervisors/statistics").catch((error) => ({ error }))
+    ]);
+    const absolute = limitsBody?.limits?.absolute || {};
+    const stats = hypervisorBody?.hypervisor_statistics || {};
+    const statsAvailable = !hypervisorBody?.error && Object.keys(stats).length > 0;
+
+    return {
+      status: "openstack-nova",
+      source: statsAvailable ? "hypervisor-statistics" : "project-limits",
+      projectId: token.projectId,
+      region: token.regionName,
+      resources: [
+        resourceMetric({
+          key: "vcpus",
+          label: "vCPU",
+          used: statsAvailable ? stats.vcpus_used : absolute.totalCoresUsed,
+          total: statsAvailable ? stats.vcpus : absolute.maxTotalCores,
+          unit: "cores"
+        }),
+        resourceMetric({
+          key: "ram",
+          label: "RAM",
+          used: statsAvailable ? stats.memory_mb_used : absolute.totalRAMUsed,
+          total: statsAvailable ? stats.memory_mb : absolute.maxTotalRAMSize,
+          unit: "MB"
+        }),
+        resourceMetric({
+          key: "disk",
+          label: "Disk",
+          used: statsAvailable ? stats.local_gb_used : null,
+          total: statsAvailable ? stats.local_gb : null,
+          unit: "GB"
+        }),
+        resourceMetric({
+          key: "instances",
+          label: "Instances",
+          used: statsAvailable ? stats.running_vms : absolute.totalInstancesUsed,
+          total: absolute.maxTotalInstances,
+          unit: "VMs"
+        })
+      ],
+      warnings: [
+        hypervisorBody?.error ? `Hypervisor statistics unavailable: ${deploymentErrorMessage(hypervisorBody.error)}` : "",
+        limitsBody?.error ? `Project limits unavailable: ${deploymentErrorMessage(limitsBody.error)}` : ""
+      ].filter(Boolean)
+    };
+  }
 }
 
 async function parseResponseBody(response) {
@@ -968,7 +1071,7 @@ export class OpenStackHeatProvider {
     }
 
     const id = randomUUID();
-    const stackName = stackNameFor(user, lab, id.slice(0, 8));
+    const stackName = deploymentNameFor(this.env, user, lab, id.slice(0, 8));
     const deployment = {
       id,
       lab,
@@ -996,7 +1099,7 @@ export class OpenStackHeatProvider {
     return deployment;
   }
 
-  destroyDeployment(user, deploymentId) {
+  async destroyDeployment(user, deploymentId) {
     const deployment = this.getDeployment(user, deploymentId);
     if (!deployment) return null;
 
@@ -1007,11 +1110,14 @@ export class OpenStackHeatProvider {
     });
 
     const deletePromise = deployment.openStackEngine === "nova" || deployment.serverId
-      ? this.deleteNovaServerForDeployment(deploymentId, deployment.serverId)
+      ? this.deleteNovaServerForDeployment(deploymentId, deployment.serverId, deployment.heatStackName)
       : this.deleteStackForDeployment(deploymentId, deployment.heatStackName, deployment.heatStackId);
 
-    deletePromise
-      .catch((error) => this.failDeployment(deploymentId, error));
+    try {
+      await deletePromise;
+    } catch (error) {
+      this.failDeployment(deploymentId, error);
+    }
 
     return this.deployments.get(deploymentId);
   }
@@ -1055,6 +1161,7 @@ export class OpenStackHeatProvider {
     if (!deployment) return null;
     if (deployment.openStackEngine === "nova" || deployment.serverId) {
       if (!deployment.serverId) return deployment;
+      if (deployment.status === "ready") return deployment;
 
       this.deployments.set(deploymentId, {
         ...deployment,
@@ -1064,7 +1171,14 @@ export class OpenStackHeatProvider {
 
       this.client.serverAction(deployment.serverId, "os-start")
         .then(() => this.scheduleStatusPoll(deploymentId, this.pollIntervalMs))
-        .catch((error) => this.failDeployment(deploymentId, error));
+        .catch((error) => {
+          if (isNovaAlreadyActiveStartConflict(error)) {
+            this.refreshDeploymentStatus(deploymentId)
+              .catch((refreshError) => this.failDeployment(deploymentId, refreshError));
+            return;
+          }
+          this.failDeployment(deploymentId, error);
+        });
 
       return this.deployments.get(deploymentId);
     }
@@ -1150,6 +1264,19 @@ export class OpenStackHeatProvider {
     }
   }
 
+  async getResourceSummary() {
+    try {
+      return await this.client.resourceSummary();
+    } catch (error) {
+      return {
+        status: "openstack",
+        source: "unavailable",
+        resources: [],
+        warnings: [deploymentErrorMessage(error)]
+      };
+    }
+  }
+
   async createStackForDeployment(deploymentId, expectedStackName = null) {
     const deployment = this.deployments.get(deploymentId);
     if (!deployment || deployment.status === "deleted" || deployment.status === "deleting") return;
@@ -1229,7 +1356,11 @@ export class OpenStackHeatProvider {
     const templatePath = this.resolveLabTemplatePath(deployment.lab);
     const templateSource = readFileSync(templatePath, "utf8");
     const templateParameters = buildHeatParameters({ env: this.env, lab: deployment.lab, templateSource });
-    const networkOverride = firstEnv(this.env, ["LAB_NOVA_NETWORK", "LAB_HEAT_NETWORK"]);
+    const ecomDefaultNetwork = deployment.lab.id === "ccdc-ecom-ubuntu-24"
+      ? firstEnv(this.env, ["LAB_CCDC_SPLUNK_PARAM_NETWORK"]) || this.getLab("ccdc-splunk")?.network?.lan
+      : undefined;
+    const networkOverride = firstEnv(this.env, ["LAB_NOVA_NETWORK", "LAB_HEAT_NETWORK"])
+      || (novaNetworkParameter(templateParameters) ? undefined : ecomDefaultNetwork);
     const parameters = networkOverride
       ? { ...templateParameters, network: networkOverride }
       : templateParameters;
@@ -1357,10 +1488,25 @@ export class OpenStackHeatProvider {
     });
   }
 
-  async deleteNovaServerForDeployment(deploymentId, serverId) {
-    if (serverId) {
-      await this.client.deleteServer(serverId);
-      await this.waitForServerDelete(serverId);
+  async deleteNovaServerForDeployment(deploymentId, serverId, serverName) {
+    const serverIds = new Set();
+    if (serverId) serverIds.add(serverId);
+
+    if (serverName && this.client.listServersByName) {
+      const matchingServers = await this.client.listServersByName(serverName);
+      for (const server of matchingServers) {
+        if (server?.id) serverIds.add(server.id);
+      }
+    }
+
+    for (const id of serverIds) {
+      await this.client.deleteServer(id).catch((error) => {
+        if (error.openStackStatus !== 404) throw error;
+      });
+    }
+
+    for (const id of serverIds) {
+      await this.waitForServerDelete(id);
     }
 
     const current = this.deployments.get(deploymentId);

@@ -590,8 +590,8 @@ export const labs = [
   {
     id: "cirros-smoke-test",
     slug: "cirros-smoke-test",
-    name: "Cirros Smoke Test",
-    description: "Small OpenStack deploy test",
+    name: "Debian 13 Smoke Test",
+    description: "Small Debian OpenStack deploy test",
     difficulty: "OpenStack test",
     category: "test",
     platform: "Test",
@@ -599,8 +599,8 @@ export const labs = [
     enabled: true,
     resources: {
       vcpus: 1,
-      ramMb: 64,
-      diskGb: 1,
+      ramMb: 2048,
+      diskGb: 20,
       networks: 1,
       servers: 1
     },
@@ -609,12 +609,12 @@ export const labs = [
       public: "noVNC"
     },
     credentials: [
-      { username: "cirros", password: "gocubsgo" }
+      { username: "debian", password: "image default or configured key" }
     ],
     accessMethods: ["SSH", "Console"],
     hardeningSteps: [
       "Confirm the VM builds, receives DHCP, and gets a floating IP.",
-      "Validate SSH or console login with the Cirros smoke-test credentials.",
+      "Validate SSH or console login with the Debian image credentials or configured key.",
       "Destroy the stack after the provider path is verified."
     ],
     hardeningGuide: [],
@@ -655,7 +655,12 @@ export const labs = [
     platform: "Linux",
     defaultTtlMinutes: 240,
     enabled: true,
-    resources: linuxResources,
+    resources: {
+      ...linuxResources,
+      vcpus: 3,
+      ramMb: 4096,
+      diskGb: 50
+    },
     network: {
       lan: "172.20.242.104",
       public: "172.25.39.11"
@@ -667,7 +672,11 @@ export const labs = [
     hardeningSteps: linuxHardeningSteps,
     hardeningGuide: linuxHardeningGuide,
     roleGuide: roleGuides.linuxEcommerce,
-    heatTemplatePath: "heat-templates/mini-ccdc.yaml"
+    heatTemplatePath: "heat-templates/single-linux.yaml",
+    heatParameters: {
+      image: "ecom",
+      flavor: "ecom-3c-4g-50g"
+    }
   },
   {
     id: "ccdc-webmail-fedora-42",
@@ -706,12 +715,12 @@ export const labs = [
     resources: {
       ...linuxResources,
       vcpus: 4,
-      ramMb: 8192,
-      diskGb: 80
+      ramMb: 16384,
+      diskGb: 60
     },
     network: {
-      lan: "172.20.242.20",
-      public: "172.25.39.9"
+      lan: "private",
+      public: "noVNC"
     },
     credentials: [
       { username: "root", password: "changemenow" },
@@ -722,7 +731,7 @@ export const labs = [
     hardeningSteps: linuxHardeningSteps,
     hardeningGuide: linuxHardeningGuide,
     roleGuide: roleGuides.splunk,
-    heatTemplatePath: "heat-templates/mini-ccdc.yaml"
+    heatTemplatePath: "heat-templates/single-cirros.yaml"
   },
   {
     id: "ccdc-ftp-server-2022",

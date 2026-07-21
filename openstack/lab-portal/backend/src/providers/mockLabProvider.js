@@ -136,6 +136,29 @@ export class MockLabProvider {
     };
   }
 
+  getResourceSummary() {
+    const activeDeployments = [...this.deployments.values()]
+      .filter((deployment) => !["deleted", "failed"].includes(deployment.status));
+    const used = activeDeployments.reduce((totals, deployment) => ({
+      vcpus: totals.vcpus + (deployment.lab?.resources?.vcpus || 0),
+      ramMb: totals.ramMb + (deployment.lab?.resources?.ramMb || 0),
+      diskGb: totals.diskGb + (deployment.lab?.resources?.diskGb || 0),
+      instances: totals.instances + 1
+    }), { vcpus: 0, ramMb: 0, diskGb: 0, instances: 0 });
+
+    return {
+      status: "mock",
+      source: "mock-capacity",
+      resources: [
+        { key: "vcpus", label: "vCPU", used: used.vcpus, total: 32, available: 32 - used.vcpus, unit: "cores" },
+        { key: "ram", label: "RAM", used: used.ramMb, total: 65536, available: 65536 - used.ramMb, unit: "MB" },
+        { key: "disk", label: "Disk", used: used.diskGb, total: 1000, available: 1000 - used.diskGb, unit: "GB" },
+        { key: "instances", label: "Instances", used: used.instances, total: 20, available: 20 - used.instances, unit: "VMs" }
+      ],
+      warnings: []
+    };
+  }
+
   updateStatus(deploymentId, status) {
     const deployment = this.deployments.get(deploymentId);
     if (!deployment || deployment.status === "deleted" || deployment.status === "deleting") return;
