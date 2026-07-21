@@ -10,7 +10,7 @@
       "subnet": "10.10.30.0/23",
       "first_seen": "2026-07-09T17:11:41Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "02:bc:66:86:2a:65": {
       "key": "02:bc:66:86:2a:65",
@@ -76,7 +76,7 @@
       "subnet": "10.10.30.0/23",
       "first_seen": "2026-07-09T17:11:41Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "22:1a:9e:3b:e5:dc": {
       "key": "22:1a:9e:3b:e5:dc",
@@ -197,7 +197,7 @@
       "subnet": "10.10.30.0/23",
       "first_seen": "2026-07-09T17:11:41Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "46:20:5b:2c:2b:7e": {
       "key": "46:20:5b:2c:2b:7e",
@@ -230,7 +230,7 @@
       "subnet": "10.10.30.0/23",
       "first_seen": "2026-07-09T17:11:41Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "50:28:4a:12:89:64": {
       "key": "50:28:4a:12:89:64",
@@ -263,7 +263,7 @@
       "subnet": "10.10.30.0/23",
       "first_seen": "2026-07-09T17:11:41Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "52:e7:cb:68:d4:9b": {
       "key": "52:e7:cb:68:d4:9b",
@@ -318,7 +318,7 @@
       "subnet": "10.10.30.0/23",
       "first_seen": "2026-07-09T17:11:41Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "5a:a3:b3:e2:08:14": {
       "key": "5a:a3:b3:e2:08:14",
@@ -362,7 +362,7 @@
       "subnet": "10.10.30.0/23",
       "first_seen": "2026-07-09T17:11:41Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "70:15:fb:e1:83:b8": {
       "key": "70:15:fb:e1:83:b8",
@@ -406,7 +406,7 @@
       "subnet": "10.10.30.0/23",
       "first_seen": "2026-07-09T17:11:41Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "74:d8:3e:25:66:1f": {
       "key": "74:d8:3e:25:66:1f",
@@ -417,7 +417,7 @@
       "subnet": "10.10.30.0/23",
       "first_seen": "2026-07-09T17:11:41Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "76:65:fa:04:f6:a8": {
       "key": "76:65:fa:04:f6:a8",
@@ -571,7 +571,7 @@
       "subnet": "10.10.30.0/23",
       "first_seen": "2026-07-09T17:11:41Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "94:e2:3c:ef:84:ef": {
       "key": "94:e2:3c:ef:84:ef",
@@ -736,7 +736,7 @@
       "subnet": "10.10.30.0/23",
       "first_seen": "2026-07-09T17:11:41Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ba:1d:73:e3:e3:5d": {
       "key": "ba:1d:73:e3:e3:5d",
@@ -780,7 +780,7 @@
       "subnet": "10.10.30.0/23",
       "first_seen": "2026-07-09T17:11:41Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "c4:03:a8:90:30:b7": {
       "key": "c4:03:a8:90:30:b7",
@@ -791,7 +791,7 @@
       "subnet": "10.10.30.0/23",
       "first_seen": "2026-07-09T17:11:41Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "c4:23:60:2f:e4:73": {
       "key": "c4:23:60:2f:e4:73",
@@ -802,7 +802,7 @@
       "subnet": "10.10.30.0/23",
       "first_seen": "2026-07-09T17:11:41Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "c6:09:a0:00:05:9a": {
       "key": "c6:09:a0:00:05:9a",
@@ -879,7 +879,7 @@
       "subnet": "10.10.30.0/23",
       "first_seen": "2026-07-09T17:11:41Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "d4:e9:8a:c9:04:91": {
       "key": "d4:e9:8a:c9:04:91",
@@ -1225,7 +1225,7 @@
       "subnet": "10.10.65.0/24",
       "first_seen": "2026-07-09T21:52:38Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.65.11": {
       "key": "ip:10.10.65.11",
@@ -1234,7 +1234,7 @@
       "subnet": "10.10.65.0/24",
       "first_seen": "2026-07-09T21:52:38Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.65.12": {
       "key": "ip:10.10.65.12",
@@ -1243,7 +1243,7 @@
       "subnet": "10.10.65.0/24",
       "first_seen": "2026-07-09T21:52:09Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.65.158": {
       "key": "ip:10.10.65.158",
@@ -1270,7 +1270,7 @@
       "subnet": "10.10.65.0/24",
       "first_seen": "2026-07-09T21:52:02Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.65.200": {
       "key": "ip:10.10.65.200",
@@ -1279,7 +1279,7 @@
       "subnet": "10.10.65.0/24",
       "first_seen": "2026-07-09T21:52:02Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.65.205": {
       "key": "ip:10.10.65.205",
@@ -1297,7 +1297,7 @@
       "subnet": "10.10.65.0/24",
       "first_seen": "2026-07-09T21:52:38Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.65.211": {
       "key": "ip:10.10.65.211",
@@ -1306,7 +1306,7 @@
       "subnet": "10.10.65.0/24",
       "first_seen": "2026-07-09T21:52:02Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.65.214": {
       "key": "ip:10.10.65.214",
@@ -1315,7 +1315,7 @@
       "subnet": "10.10.65.0/24",
       "first_seen": "2026-07-09T21:52:02Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.65.22": {
       "key": "ip:10.10.65.22",
@@ -1324,7 +1324,7 @@
       "subnet": "10.10.65.0/24",
       "first_seen": "2026-07-09T21:52:38Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.65.221": {
       "key": "ip:10.10.65.221",
@@ -1333,7 +1333,7 @@
       "subnet": "10.10.65.0/24",
       "first_seen": "2026-07-09T21:52:02Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.65.223": {
       "key": "ip:10.10.65.223",
@@ -1342,7 +1342,7 @@
       "subnet": "10.10.65.0/24",
       "first_seen": "2026-07-09T21:52:02Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.65.224": {
       "key": "ip:10.10.65.224",
@@ -1351,7 +1351,7 @@
       "subnet": "10.10.65.0/24",
       "first_seen": "2026-07-09T21:52:02Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.65.228": {
       "key": "ip:10.10.65.228",
@@ -1360,7 +1360,7 @@
       "subnet": "10.10.65.0/24",
       "first_seen": "2026-07-09T21:52:02Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.65.229": {
       "key": "ip:10.10.65.229",
@@ -1369,7 +1369,7 @@
       "subnet": "10.10.65.0/24",
       "first_seen": "2026-07-09T21:52:02Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.65.230": {
       "key": "ip:10.10.65.230",
@@ -1378,7 +1378,7 @@
       "subnet": "10.10.65.0/24",
       "first_seen": "2026-07-09T21:52:02Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.65.24": {
       "key": "ip:10.10.65.24",
@@ -1387,7 +1387,7 @@
       "subnet": "10.10.65.0/24",
       "first_seen": "2026-07-09T21:52:09Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.65.25": {
       "key": "ip:10.10.65.25",
@@ -1396,7 +1396,7 @@
       "subnet": "10.10.65.0/24",
       "first_seen": "2026-07-09T21:52:02Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.65.26": {
       "key": "ip:10.10.65.26",
@@ -1405,7 +1405,7 @@
       "subnet": "10.10.65.0/24",
       "first_seen": "2026-07-09T21:52:38Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.65.27": {
       "key": "ip:10.10.65.27",
@@ -1432,7 +1432,7 @@
       "subnet": "10.10.65.0/24",
       "first_seen": "2026-07-09T21:52:02Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.65.30": {
       "key": "ip:10.10.65.30",
@@ -1441,7 +1441,7 @@
       "subnet": "10.10.65.0/24",
       "first_seen": "2026-07-09T21:52:02Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.65.31": {
       "key": "ip:10.10.65.31",
@@ -1459,7 +1459,7 @@
       "subnet": "10.10.65.0/24",
       "first_seen": "2026-07-09T21:52:09Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.65.33": {
       "key": "ip:10.10.65.33",
@@ -1963,7 +1963,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:52:02Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.66.11": {
       "key": "ip:10.10.66.11",
@@ -1972,7 +1972,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:52:02Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.66.110": {
       "key": "ip:10.10.66.110",
@@ -1981,7 +1981,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:52:02Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.66.121": {
       "key": "ip:10.10.66.121",
@@ -1990,7 +1990,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:52:02Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.66.122": {
       "key": "ip:10.10.66.122",
@@ -1999,7 +1999,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:52:02Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.66.123": {
       "key": "ip:10.10.66.123",
@@ -2017,7 +2017,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:52:09Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.66.126": {
       "key": "ip:10.10.66.126",
@@ -2026,7 +2026,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:52:09Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.66.127": {
       "key": "ip:10.10.66.127",
@@ -2035,7 +2035,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:52:09Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.66.128": {
       "key": "ip:10.10.66.128",
@@ -2044,7 +2044,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:54:26Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.66.129": {
       "key": "ip:10.10.66.129",
@@ -2053,7 +2053,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:52:09Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.66.130": {
       "key": "ip:10.10.66.130",
@@ -2062,7 +2062,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:52:09Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.66.131": {
       "key": "ip:10.10.66.131",
@@ -2071,7 +2071,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:52:09Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.66.132": {
       "key": "ip:10.10.66.132",
@@ -2080,7 +2080,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:52:09Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.66.133": {
       "key": "ip:10.10.66.133",
@@ -2089,7 +2089,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:52:09Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.66.134": {
       "key": "ip:10.10.66.134",
@@ -2098,7 +2098,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:52:09Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.66.136": {
       "key": "ip:10.10.66.136",
@@ -2107,7 +2107,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:52:09Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.66.137": {
       "key": "ip:10.10.66.137",
@@ -2116,7 +2116,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:52:09Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.66.138": {
       "key": "ip:10.10.66.138",
@@ -2125,7 +2125,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:52:09Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.66.139": {
       "key": "ip:10.10.66.139",
@@ -2134,7 +2134,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:52:09Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.66.140": {
       "key": "ip:10.10.66.140",
@@ -2143,7 +2143,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:52:09Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.66.141": {
       "key": "ip:10.10.66.141",
@@ -2152,7 +2152,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:52:09Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.66.142": {
       "key": "ip:10.10.66.142",
@@ -2161,7 +2161,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:52:02Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.66.143": {
       "key": "ip:10.10.66.143",
@@ -2179,7 +2179,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:52:02Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.66.57": {
       "key": "ip:10.10.66.57",
@@ -2188,7 +2188,7 @@
       "subnet": "10.10.66.0/24",
       "first_seen": "2026-07-09T21:52:02Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.67.1": {
       "key": "ip:10.10.67.1",
@@ -2197,7 +2197,7 @@
       "subnet": "10.10.67.0/24",
       "first_seen": "2026-07-09T21:52:02Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     },
     "ip:10.10.67.11": {
       "key": "ip:10.10.67.11",
@@ -2206,7 +2206,7 @@
       "subnet": "10.10.67.0/24",
       "first_seen": "2026-07-09T21:52:02Z",
       "last_seen": "2026-07-09T22:14:40Z",
-      "last_status": "known"
+      "last_status": "offline"
     }
   },
   "history": [
@@ -100736,6 +100736,595 @@
       "ip": "10.10.65.37",
       "previous_ip": "10.10.65.37",
       "subnet": "10.10.65.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.65.221",
+      "key_type": "ip",
+      "ip": "10.10.65.221",
+      "previous_ip": "10.10.65.221",
+      "subnet": "10.10.65.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.110",
+      "key_type": "ip",
+      "ip": "10.10.66.110",
+      "previous_ip": "10.10.66.110",
+      "subnet": "10.10.66.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "c4:23:60:2f:e4:73",
+      "key_type": "mac",
+      "ip": "10.10.30.105",
+      "previous_ip": "10.10.30.105",
+      "mac": "c4:23:60:2f:e4:73",
+      "interface": "en0",
+      "subnet": "10.10.30.0/23",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.65.29",
+      "key_type": "ip",
+      "ip": "10.10.65.29",
+      "previous_ip": "10.10.65.29",
+      "subnet": "10.10.65.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.57",
+      "key_type": "ip",
+      "ip": "10.10.66.57",
+      "previous_ip": "10.10.66.57",
+      "subnet": "10.10.66.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.65.11",
+      "key_type": "ip",
+      "ip": "10.10.65.11",
+      "previous_ip": "10.10.65.11",
+      "subnet": "10.10.65.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.11",
+      "key_type": "ip",
+      "ip": "10.10.66.11",
+      "previous_ip": "10.10.66.11",
+      "subnet": "10.10.66.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.121",
+      "key_type": "ip",
+      "ip": "10.10.66.121",
+      "previous_ip": "10.10.66.121",
+      "subnet": "10.10.66.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.65.21",
+      "key_type": "ip",
+      "ip": "10.10.65.21",
+      "previous_ip": "10.10.65.21",
+      "subnet": "10.10.65.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.127",
+      "key_type": "ip",
+      "ip": "10.10.66.127",
+      "previous_ip": "10.10.66.127",
+      "subnet": "10.10.66.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.132",
+      "key_type": "ip",
+      "ip": "10.10.66.132",
+      "previous_ip": "10.10.66.132",
+      "subnet": "10.10.66.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "4e:ff:c0:2f:45:7a",
+      "key_type": "mac",
+      "ip": "10.10.30.109",
+      "previous_ip": "10.10.30.109",
+      "mac": "4e:ff:c0:2f:45:7a",
+      "interface": "en0",
+      "subnet": "10.10.30.0/23",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "b6:61:60:22:77:56",
+      "key_type": "mac",
+      "ip": "10.10.30.36",
+      "previous_ip": "10.10.30.36",
+      "mac": "b6:61:60:22:77:56",
+      "interface": "en0",
+      "subnet": "10.10.30.0/23",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.133",
+      "key_type": "ip",
+      "ip": "10.10.66.133",
+      "previous_ip": "10.10.66.133",
+      "subnet": "10.10.66.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "00:00:0c:07:ac:1e",
+      "key_type": "mac",
+      "ip": "10.10.30.1",
+      "previous_ip": "10.10.30.1",
+      "mac": "00:00:0c:07:ac:1e",
+      "vendor": "Cisco Systems",
+      "interface": "en0",
+      "subnet": "10.10.30.0/23",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.65.12",
+      "key_type": "ip",
+      "ip": "10.10.65.12",
+      "previous_ip": "10.10.65.12",
+      "subnet": "10.10.65.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.65.30",
+      "key_type": "ip",
+      "ip": "10.10.65.30",
+      "previous_ip": "10.10.65.30",
+      "subnet": "10.10.65.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "50:e0:85:46:56:5e",
+      "key_type": "mac",
+      "ip": "10.10.30.90",
+      "previous_ip": "10.10.30.90",
+      "mac": "50:e0:85:46:56:5e",
+      "interface": "en0",
+      "subnet": "10.10.30.0/23",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "5a:0f:01:5b:20:41",
+      "key_type": "mac",
+      "ip": "10.10.30.200",
+      "previous_ip": "10.10.30.200",
+      "mac": "5a:0f:01:5b:20:41",
+      "interface": "en0",
+      "subnet": "10.10.30.0/23",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.65.229",
+      "key_type": "ip",
+      "ip": "10.10.65.229",
+      "previous_ip": "10.10.65.229",
+      "subnet": "10.10.65.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.65.230",
+      "key_type": "ip",
+      "ip": "10.10.65.230",
+      "previous_ip": "10.10.65.230",
+      "subnet": "10.10.65.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.65.32",
+      "key_type": "ip",
+      "ip": "10.10.65.32",
+      "previous_ip": "10.10.65.32",
+      "subnet": "10.10.65.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.131",
+      "key_type": "ip",
+      "ip": "10.10.66.131",
+      "previous_ip": "10.10.66.131",
+      "subnet": "10.10.66.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.65.26",
+      "key_type": "ip",
+      "ip": "10.10.65.26",
+      "previous_ip": "10.10.65.26",
+      "subnet": "10.10.65.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.126",
+      "key_type": "ip",
+      "ip": "10.10.66.126",
+      "previous_ip": "10.10.66.126",
+      "subnet": "10.10.66.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.136",
+      "key_type": "ip",
+      "ip": "10.10.66.136",
+      "previous_ip": "10.10.66.136",
+      "subnet": "10.10.66.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.48",
+      "key_type": "ip",
+      "ip": "10.10.66.48",
+      "previous_ip": "10.10.66.48",
+      "subnet": "10.10.66.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.142",
+      "key_type": "ip",
+      "ip": "10.10.66.142",
+      "previous_ip": "10.10.66.142",
+      "subnet": "10.10.66.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "46:08:4a:5a:f1:f9",
+      "key_type": "mac",
+      "ip": "10.10.30.108",
+      "previous_ip": "10.10.30.108",
+      "mac": "46:08:4a:5a:f1:f9",
+      "interface": "en0",
+      "subnet": "10.10.30.0/23",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "70:0f:6a:b1:70:b7",
+      "key_type": "mac",
+      "ip": "10.10.30.3",
+      "previous_ip": "10.10.30.3",
+      "mac": "70:0f:6a:b1:70:b7",
+      "interface": "en0",
+      "subnet": "10.10.30.0/23",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "74:3a:f4:3a:79:9c",
+      "key_type": "mac",
+      "ip": "10.10.30.164",
+      "previous_ip": "10.10.30.164",
+      "mac": "74:3a:f4:3a:79:9c",
+      "interface": "en0",
+      "subnet": "10.10.30.0/23",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.65.20",
+      "key_type": "ip",
+      "ip": "10.10.65.20",
+      "previous_ip": "10.10.65.20",
+      "subnet": "10.10.65.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.65.200",
+      "key_type": "ip",
+      "ip": "10.10.65.200",
+      "previous_ip": "10.10.65.200",
+      "subnet": "10.10.65.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.65.214",
+      "key_type": "ip",
+      "ip": "10.10.65.214",
+      "previous_ip": "10.10.65.214",
+      "subnet": "10.10.65.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.65.228",
+      "key_type": "ip",
+      "ip": "10.10.65.228",
+      "previous_ip": "10.10.65.228",
+      "subnet": "10.10.65.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "74:d8:3e:25:66:1f",
+      "key_type": "mac",
+      "ip": "10.10.30.81",
+      "previous_ip": "10.10.30.81",
+      "mac": "74:d8:3e:25:66:1f",
+      "interface": "en0",
+      "subnet": "10.10.30.0/23",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "94:e2:3c:ed:b4:76",
+      "key_type": "mac",
+      "ip": "10.10.30.181",
+      "previous_ip": "10.10.30.181",
+      "mac": "94:e2:3c:ed:b4:76",
+      "interface": "en0",
+      "subnet": "10.10.30.0/23",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.122",
+      "key_type": "ip",
+      "ip": "10.10.66.122",
+      "previous_ip": "10.10.66.122",
+      "subnet": "10.10.66.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.138",
+      "key_type": "ip",
+      "ip": "10.10.66.138",
+      "previous_ip": "10.10.66.138",
+      "subnet": "10.10.66.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.141",
+      "key_type": "ip",
+      "ip": "10.10.66.141",
+      "previous_ip": "10.10.66.141",
+      "subnet": "10.10.66.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "0c:9a:3c:42:c5:16",
+      "key_type": "mac",
+      "ip": "10.10.30.46",
+      "previous_ip": "10.10.30.46",
+      "mac": "0c:9a:3c:42:c5:16",
+      "interface": "en0",
+      "subnet": "10.10.30.0/23",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.65.211",
+      "key_type": "ip",
+      "ip": "10.10.65.211",
+      "previous_ip": "10.10.65.211",
+      "subnet": "10.10.65.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.129",
+      "key_type": "ip",
+      "ip": "10.10.66.129",
+      "previous_ip": "10.10.66.129",
+      "subnet": "10.10.66.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.65.22",
+      "key_type": "ip",
+      "ip": "10.10.65.22",
+      "previous_ip": "10.10.65.22",
+      "subnet": "10.10.65.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.65.25",
+      "key_type": "ip",
+      "ip": "10.10.65.25",
+      "previous_ip": "10.10.65.25",
+      "subnet": "10.10.65.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "c0:95:6d:85:3a:c0",
+      "key_type": "mac",
+      "ip": "10.10.30.71",
+      "previous_ip": "10.10.30.71",
+      "mac": "c0:95:6d:85:3a:c0",
+      "interface": "en0",
+      "subnet": "10.10.30.0/23",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.130",
+      "key_type": "ip",
+      "ip": "10.10.66.130",
+      "previous_ip": "10.10.66.130",
+      "subnet": "10.10.66.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "d4:c9:3c:14:b6:b7",
+      "key_type": "mac",
+      "ip": "10.10.30.2",
+      "previous_ip": "10.10.30.2",
+      "mac": "d4:c9:3c:14:b6:b7",
+      "interface": "en0",
+      "subnet": "10.10.30.0/23",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.65.224",
+      "key_type": "ip",
+      "ip": "10.10.65.224",
+      "previous_ip": "10.10.65.224",
+      "subnet": "10.10.65.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.128",
+      "key_type": "ip",
+      "ip": "10.10.66.128",
+      "previous_ip": "10.10.66.128",
+      "subnet": "10.10.66.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.65.223",
+      "key_type": "ip",
+      "ip": "10.10.65.223",
+      "previous_ip": "10.10.65.223",
+      "subnet": "10.10.65.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.125",
+      "key_type": "ip",
+      "ip": "10.10.66.125",
+      "previous_ip": "10.10.66.125",
+      "subnet": "10.10.66.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.134",
+      "key_type": "ip",
+      "ip": "10.10.66.134",
+      "previous_ip": "10.10.66.134",
+      "subnet": "10.10.66.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.140",
+      "key_type": "ip",
+      "ip": "10.10.66.140",
+      "previous_ip": "10.10.66.140",
+      "subnet": "10.10.66.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.67.1",
+      "key_type": "ip",
+      "ip": "10.10.67.1",
+      "previous_ip": "10.10.67.1",
+      "subnet": "10.10.67.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.67.11",
+      "key_type": "ip",
+      "ip": "10.10.67.11",
+      "previous_ip": "10.10.67.11",
+      "subnet": "10.10.67.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "c4:03:a8:90:30:b7",
+      "key_type": "mac",
+      "ip": "10.10.30.202",
+      "previous_ip": "10.10.30.202",
+      "mac": "c4:03:a8:90:30:b7",
+      "interface": "en0",
+      "subnet": "10.10.30.0/23",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.65.1",
+      "key_type": "ip",
+      "ip": "10.10.65.1",
+      "previous_ip": "10.10.65.1",
+      "subnet": "10.10.65.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.65.24",
+      "key_type": "ip",
+      "ip": "10.10.65.24",
+      "previous_ip": "10.10.65.24",
+      "subnet": "10.10.65.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.1",
+      "key_type": "ip",
+      "ip": "10.10.66.1",
+      "previous_ip": "10.10.66.1",
+      "subnet": "10.10.66.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.137",
+      "key_type": "ip",
+      "ip": "10.10.66.137",
+      "previous_ip": "10.10.66.137",
+      "subnet": "10.10.66.0/24",
+      "status": "offline"
+    },
+    {
+      "scanned_at": "2026-07-21T15:45:44Z",
+      "key": "ip:10.10.66.139",
+      "key_type": "ip",
+      "ip": "10.10.66.139",
+      "previous_ip": "10.10.66.139",
+      "subnet": "10.10.66.0/24",
       "status": "offline"
     }
   ],

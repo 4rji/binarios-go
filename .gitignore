@@ -15,3 +15,4 @@ backd/cmd/backd.log
 backd/backde.log
 backd/cmd/backde-legacy/backde.go
 backd/backd-simple/backd.log
+lanwatchgo/lanwatchgo-state.json
