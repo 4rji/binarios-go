@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec go run "$SCRIPT_DIR/main.go" --output-dir "$PWD/voces" "$@"
