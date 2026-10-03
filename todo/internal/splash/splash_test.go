@@ -3,6 +3,7 @@ package splash
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"regexp"
@@ -29,7 +30,7 @@ func TestPlaySkipsUnavailableSpace(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var out bytes.Buffer
 			getSize := func() (int, int, error) { return tt.columns, tt.rows, tt.err }
-			if sig := play(&out, getSize, nil); sig != nil || out.Len() != 0 {
+			if sig := play(&out, getSize, nil, darkness); sig != nil || out.Len() != 0 {
 				t.Fatalf("skipped splash emitted output or signal: %q, %v", out.String(), sig)
 			}
 		})
@@ -113,7 +114,7 @@ func TestPlayRestoresTerminal(t *testing.T) {
 			started := time.Now()
 			func() {
 				defer func() { panicked = recover() }()
-				got = play(out, getSize, interrupts)
+				got = play(out, getSize, interrupts, darkness)
 			}()
 			if got != tt.interrupt {
 				t.Errorf("signal = %v, want %v", got, tt.interrupt)
@@ -147,7 +148,21 @@ func TestPlayRestoresTerminal(t *testing.T) {
 				}
 			}
 			assertNoScrolling(t, output)
+			assertOnlyGlyphColors(t, output)
 		})
+	}
+}
+
+// assertOnlyGlyphColors fails if the splash sets anything but glyph colors.
+// Painting a background would show a box on terminals with colored themes.
+func assertOnlyGlyphColors(t *testing.T, output string) {
+	t.Helper()
+	allowed := regexp.MustCompile(`^\x1b\[(0|38;2;\d+;\d+;\d+)?m$`)
+	for _, code := range regexp.MustCompile(`\x1b\[[0-9;]*m`).FindAllString(output, -1) {
+		if !allowed.MatchString(code) {
+			t.Errorf("splash sets more than glyph colors: %q", code)
+			return
+		}
 	}
 }
 
@@ -163,8 +178,8 @@ func assertNoScrolling(t *testing.T, output string) {
 func TestFrameBoundsAndMovingHighlight(t *testing.T) {
 	positions := regexp.MustCompile(`\x1b\[(\d+);(\d+)H`)
 	colorCodes := regexp.MustCompile(`\x1b\[38;2;(\d+);(\d+);(\d+)m`)
-	star, colors := deathStar(), palette()
-	early, late := frame(star, colors, 2, 2, 0.33), frame(star, colors, 2, 2, 0.73)
+	star := deathStar()
+	early, late := frame(star, darkness, 2, 2, 0.33), frame(star, darkness, 2, 2, 0.73)
 	for _, output := range []string{early, late} {
 		assertNoScrolling(t, output)
 		commands := positions.FindAllStringSubmatch(output, -1)
@@ -208,5 +223,50 @@ func TestFrameBoundsAndMovingHighlight(t *testing.T) {
 	}
 	if redAt(early, 13, 20) <= redAt(late, 13, 20) || redAt(early, 50, 20) >= redAt(late, 50, 20) {
 		t.Error("highlight did not move from the left side to the right side")
+	}
+}
+
+var light = rgb{250, 246, 227}
+
+func foreground(c rgb) string { return fmt.Sprintf("38;2;%d;%d;%d", c.r, c.g, c.b) }
+
+func TestDeathStarEmergesFromAnyBackground(t *testing.T) {
+	if strings.Contains(enterScreen, "48;") {
+		t.Error("splash paints its own background")
+	}
+	sgrCodes := regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	glyphColor := regexp.MustCompile(`^\x1b\[38;2;\d+;\d+;\d+m$`)
+	star := deathStar()
+	for _, bg := range []rgb{darkness, {30, 60, 110}, light} {
+		invisible := "\x1b[" + foreground(bg) + "m"
+		for _, code := range sgrCodes.FindAllString(frame(star, bg, 2, 2, 0), -1) {
+			if code != invisible {
+				t.Errorf("visible Death Star on %v before it emerges: %q", bg, code)
+			}
+		}
+		levels := map[string]bool{}
+		for _, code := range sgrCodes.FindAllString(frame(star, bg, 2, 2, 0.5), -1) {
+			if !glyphColor.MatchString(code) {
+				t.Errorf("frame sets more than glyph colors: %q", code)
+			}
+			levels[code] = true
+		}
+		if len(levels) < 2 {
+			t.Errorf("Death Star on %v did not emerge into multiple brightness levels", bg)
+		}
+	}
+}
+
+func TestTintContrastsWithBackground(t *testing.T) {
+	for _, bg := range []rgb{darkness, light} {
+		if got := tint(bg, 0); got != bg {
+			t.Errorf("tint(%v, 0) = %v, want the background", bg, got)
+		}
+	}
+	if got := tint(darkness, 1); got != highlight {
+		t.Errorf("dark background tinted toward %v, want %v", got, highlight)
+	}
+	if got := tint(light, 1); got != darkness {
+		t.Errorf("light background tinted toward %v, want %v", got, darkness)
 	}
 }

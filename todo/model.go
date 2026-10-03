@@ -85,6 +85,7 @@ type Model struct {
 	warning    string            // temporary warning message
 	warningExp time.Time         // when warning expires
 	menuFade   splash.Fade
+	backdrop   splash.Backdrop
 }
 
 func initialModel() Model {
@@ -105,6 +106,7 @@ func initialModel() Model {
 		input:    ti,
 		styles:   newStyles(),
 		menuFade: splash.NewFade(),
+		backdrop: splash.NewBackdrop(),
 	}
 }
 
@@ -844,7 +846,12 @@ func (m Model) viewDetail() string {
 }
 
 func (m Model) View() string {
-	return m.menuFade.View(m.view())
+	view := m.menuFade.View(m.view())
+	// The detail view stays clean so image previews are not drawn over.
+	if m.mode == modeDetail {
+		return view
+	}
+	return m.backdrop.View(view, m.width, m.height)
 }
 
 func (m Model) view() string {

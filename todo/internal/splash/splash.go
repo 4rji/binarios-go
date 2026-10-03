@@ -1,4 +1,5 @@
-// Package splash draws a short, character-built Death Star before the CLI starts.
+// Package splash draws a short, character-built Death Star before the CLI
+// starts, then can keep it as a faint backdrop behind a Bubble Tea view.
 package splash
 
 import (
@@ -20,7 +21,13 @@ const (
 	duration = 1800 * time.Millisecond
 	fps      = 30
 
-	enterScreen = "\x1b[?1049h\x1b[?25l\x1b[0m\x1b[48;2;10;5;21m"
+	// backdropLevel is how far the resting Death Star moves from the background
+	// toward its highlight color; shades is the number of tint steps.
+	backdropLevel = 0.18
+	shades        = 63
+
+	// Only glyphs are colored, so the terminal's own background shows through.
+	enterScreen = "\x1b[?1049h\x1b[?25l\x1b[0m"
 	leaveScreen = "\x1b[?1049l\x1b[?25h"
 	resetColor  = "\x1b[0m"
 )
@@ -33,7 +40,8 @@ type cell struct {
 type artwork [height][width]cell
 type terminalSize func() (int, int, error)
 
-// Play runs for 1.8 seconds on interactive terminals of at least 66 by 32 cells.
+// Play runs for 1.8 seconds on interactive terminals of at least 66 by 32 cells
+// and ends on the faint Death Star that [Backdrop] keeps on screen afterwards.
 // Redirected output, dumb terminals, size changes and I/O errors skip the splash.
 // The normal screen, cursor and colors are restored before returning, panicking
 // or forwarding a termination signal. Input and terminal modes are not changed.
@@ -48,7 +56,7 @@ func Play() {
 	signal.Notify(interrupts, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT)
 	defer signal.Stop(interrupts)
 
-	sig := play(os.Stdout, getSize, interrupts)
+	sig := play(os.Stdout, getSize, interrupts, terminalBackground())
 	// Stop only our handler, after cleanup. Drain any signal received during
 	// cleanup so an interrupt cannot accidentally start the normal application.
 	signal.Stop(interrupts)
@@ -71,12 +79,15 @@ func Play() {
 	}
 }
 
+func interactive() bool {
+	return term.IsTerminal(int(os.Stdout.Fd())) && os.Getenv("TERM") != "dumb"
+}
+
 func canAnimate() bool {
-	fd := int(os.Stdout.Fd())
-	if !term.IsTerminal(fd) || os.Getenv("TERM") == "dumb" {
+	if !interactive() {
 		return false
 	}
-	columns, rows, err := term.GetSize(fd)
+	columns, rows, err := term.GetSize(int(os.Stdout.Fd()))
 	return err == nil && fits(columns, rows)
 }
 
@@ -85,7 +96,7 @@ func fits(columns, rows int) bool {
 	return columns >= width+2 && rows >= height+2
 }
 
-func play(out io.Writer, getSize terminalSize, interrupts <-chan os.Signal) os.Signal {
+func play(out io.Writer, getSize terminalSize, interrupts <-chan os.Signal, bg rgb) os.Signal {
 	columns, rows, err := getSize()
 	if err != nil || !fits(columns, rows) {
 		return nil
@@ -114,14 +125,13 @@ func play(out io.Writer, getSize terminalSize, interrupts <-chan os.Signal) os.S
 		return nil
 	}
 	star := deathStar()
-	colors := palette()
 	started := time.Now()
 	ticker := time.NewTicker(time.Second / fps)
 	defer ticker.Stop()
 	timer := time.NewTimer(duration)
 	defer timer.Stop()
 
-	if _, err := io.WriteString(out, frame(star, colors, left, top, 0)); err != nil {
+	if _, err := io.WriteString(out, frame(star, bg, left, top, 0)); err != nil {
 		return nil
 	}
 	for {
@@ -129,9 +139,9 @@ func play(out io.Writer, getSize terminalSize, interrupts <-chan os.Signal) os.S
 		case sig := <-interrupts:
 			return sig
 		case <-timer.C:
-			// Finish at complete darkness before erasing the animation area.
+			// Finish on the resting backdrop before erasing the animation area.
 			if w, h, err := getSize(); err == nil && w == columns && h == rows {
-				_, _ = io.WriteString(out, frame(star, colors, left, top, 1))
+				_, _ = io.WriteString(out, frame(star, bg, left, top, 1))
 			}
 			return nil
 		case <-ticker.C:
@@ -142,7 +152,7 @@ func play(out io.Writer, getSize terminalSize, interrupts <-chan os.Signal) os.S
 				return nil
 			}
 			progress := min(1, time.Since(started).Seconds()/duration.Seconds())
-			if _, err := io.WriteString(out, frame(star, colors, left, top, progress)); err != nil {
+			if _, err := io.WriteString(out, frame(star, bg, left, top, progress)); err != nil {
 				return nil
 			}
 		}
@@ -215,22 +225,16 @@ func deathStar() artwork {
 	return star
 }
 
-func palette() [32]string {
-	var colors [32]string
-	for i := range colors {
-		t := float64(i) / float64(len(colors)-1)
-		colors[i] = fmt.Sprintf("\x1b[38;2;%d;%d;%dm",
-			10+int(208*t), 5+int(220*t), 21+int(209*t))
-	}
-	return colors
-}
-
-func frame(star artwork, colors [32]string, left, top int, progress float64) string {
+// frame draws the Death Star over the terminal background bg. It emerges from
+// bg, a light sweeps across it, and it settles into the resting backdrop.
+func frame(star artwork, bg rgb, left, top int, progress float64) string {
 	var out strings.Builder
 	out.Grow(width * height * 12)
-	previousColor := -1
-	// Ease in for 360 ms, sweep the light across, then ease out for 396 ms.
+	previous := rgb{-1, -1, -1}
+	// Ease in for 360 ms and sweep the light across. During the last 396 ms the
+	// light fades out while the surface settles at the backdrop's brightness.
 	visibility := smoothstep(progress/0.20) * (1 - smoothstep((progress-0.78)/0.22))
+	settle := smoothstep((progress - 0.78) / 0.22)
 	travel := max(0, min(1, (progress-0.18)/0.62))
 	for y, row := range star {
 		fmt.Fprintf(&out, "\x1b[%d;%dH", top+y, left)
@@ -246,12 +250,11 @@ func frame(star artwork, colors [32]string, left, top int, progress float64) str
 			distance := (nx + 0.25*ny - (-1.45 + 2.9*travel)) / 0.34
 			wave := math.Exp(-distance * distance)
 			shimmer := 0.5 + 0.5*math.Sin(4*nx+2*ny-6*progress)
-			brightness := visibility * c.shade * (0.24 + 0.68*wave + 0.08*shimmer)
-			index := int(brightness * float64(len(colors)-1))
-			index = max(0, min(len(colors)-1, index))
-			if index != previousColor {
-				out.WriteString(colors[index])
-				previousColor = index
+			glow := visibility * (0.24 + 0.68*wave + 0.08*shimmer)
+			color := tint(bg, c.shade*(glow+settle*backdropLevel))
+			if color != previous {
+				writeForeground(&out, color)
+				previous = color
 			}
 			out.WriteRune(c.glyph)
 		}

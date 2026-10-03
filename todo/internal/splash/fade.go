@@ -19,12 +19,19 @@ type FadeTick time.Time
 // Its zero value leaves views unchanged.
 type Fade struct {
 	enabled  bool
+	base     rgb // The terminal's background, where the transition starts.
 	started  time.Time
 	progress float64
 }
 
 // NewFade enables the menu transition only where the startup splash can run.
-func NewFade() Fade { return Fade{enabled: canAnimate()} }
+// Call it before the Bubble Tea program starts; see [NewBackdrop].
+func NewFade() Fade {
+	if !canAnimate() {
+		return Fade{}
+	}
+	return Fade{enabled: true, base: terminalBackground()}
+}
 
 // Start begins the transition once the menu's data is ready.
 func (f *Fade) Start() tea.Cmd {
@@ -48,12 +55,12 @@ func (f *Fade) Update(tick FadeTick) tea.Cmd {
 	return fadeTick()
 }
 
-// View keeps the loading view dark until Start, then fades in the ready menu.
+// View keeps the loading view invisible until Start, then fades in the ready menu.
 func (f Fade) View(view string) string {
 	if !f.enabled {
 		return view
 	}
-	return fadeView(view, f.progress)
+	return fadeView(view, f.base, f.progress)
 }
 
 func fadeTick() tea.Cmd {
@@ -62,24 +69,18 @@ func fadeTick() tea.Cmd {
 
 var sgr = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
-type rgb struct{ r, g, b int }
-
-var darkness = rgb{10, 5, 21} // The menu's existing base background (#0a0515).
-
-func fadedColor(code int, color rgb, alpha float64) string {
-	return fmt.Sprintf("%d;2;%d;%d;%d", code,
-		darkness.r+int(float64(color.r-darkness.r)*alpha),
-		darkness.g+int(float64(color.g-darkness.g)*alpha),
-		darkness.b+int(float64(color.b-darkness.b)*alpha))
-}
-
-func fadeView(view string, alpha float64) string {
+// fadeView blends every color in view from base (alpha 0) to itself (alpha 1).
+func fadeView(view string, base rgb, alpha float64) string {
 	if alpha >= 1 {
 		return view
 	}
 	alpha = max(0, alpha)
-	foreground := fadedColor(38, rgb{232, 232, 255}, alpha)
-	background := fadedColor(48, darkness, alpha)
+	fadedColor := func(code int, color rgb) string {
+		c := mix(base, color, alpha)
+		return fmt.Sprintf("%d;2;%d;%d;%d", code, c.r, c.g, c.b)
+	}
+	foreground := fadedColor(38, rgb{232, 232, 255})
+	background := "49" // Cells without a background keep the terminal's own.
 	defaults := foreground + ";" + background
 
 	// Lip Gloss may emit truecolor, 256-color or 16-color SGR depending on the
@@ -105,7 +106,7 @@ func fadeView(view string, alpha float64) string {
 				g, eg := strconv.Atoi(parts[i+3])
 				b, eb := strconv.Atoi(parts[i+4])
 				if er == nil && eg == nil && eb == nil {
-					codes = append(codes, fadedColor(code, rgb{r, g, b}, alpha))
+					codes = append(codes, fadedColor(code, rgb{r, g, b}))
 					i += 4
 				} else {
 					codes = append(codes, parts[i])
@@ -113,19 +114,19 @@ func fadeView(view string, alpha float64) string {
 			case (code == 38 || code == 48) && i+2 < len(parts) && parts[i+1] == "5":
 				n, err := strconv.Atoi(parts[i+2])
 				if err == nil && n >= 0 && n <= 255 {
-					codes = append(codes, fadedColor(code, indexedColor(n), alpha))
+					codes = append(codes, fadedColor(code, indexedColor(n)))
 					i += 2
 				} else {
 					codes = append(codes, parts[i])
 				}
 			case code >= 30 && code <= 37:
-				codes = append(codes, fadedColor(38, indexedColor(code-30), alpha))
+				codes = append(codes, fadedColor(38, indexedColor(code-30)))
 			case code >= 90 && code <= 97:
-				codes = append(codes, fadedColor(38, indexedColor(code-90+8), alpha))
+				codes = append(codes, fadedColor(38, indexedColor(code-90+8)))
 			case code >= 40 && code <= 47:
-				codes = append(codes, fadedColor(48, indexedColor(code-40), alpha))
+				codes = append(codes, fadedColor(48, indexedColor(code-40)))
 			case code >= 100 && code <= 107:
-				codes = append(codes, fadedColor(48, indexedColor(code-100+8), alpha))
+				codes = append(codes, fadedColor(48, indexedColor(code-100+8)))
 			default:
 				codes = append(codes, parts[i])
 			}
@@ -133,22 +134,4 @@ func fadeView(view string, alpha float64) string {
 		return "\x1b[" + strings.Join(codes, ";") + "m"
 	})
 	return "\x1b[" + defaults + "m" + faded + resetColor
-}
-
-func indexedColor(n int) rgb {
-	if n < 16 {
-		return [...]rgb{
-			{0, 0, 0}, {128, 0, 0}, {0, 128, 0}, {128, 128, 0},
-			{0, 0, 128}, {128, 0, 128}, {0, 128, 128}, {192, 192, 192},
-			{128, 128, 128}, {255, 0, 0}, {0, 255, 0}, {255, 255, 0},
-			{0, 0, 255}, {255, 0, 255}, {0, 255, 255}, {255, 255, 255},
-		}[n]
-	}
-	if n >= 232 {
-		gray := 8 + (n-232)*10
-		return rgb{gray, gray, gray}
-	}
-	levels := [...]int{0, 95, 135, 175, 215, 255}
-	n -= 16
-	return rgb{levels[n/36], levels[n/6%6], levels[n%6]}
 }

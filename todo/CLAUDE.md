@@ -28,6 +28,11 @@ and clipboard-copy-then-execute.
   list of strings for `detailed_desc`) and `Descriptions` with a case-insensitive `Lookup`.
 - **Styles** (`styles.go`): lipgloss color constants (cyberpunk palette) and the `Styles` struct.
 - **Clipboard** (`clipboard.go`): cross-platform copy (`pbcopy` / `xclip` / `xsel`).
+- **Splash** (`internal/splash`): `Play` (called in `main.go` before Bubble Tea) animates
+  the Death Star; `Fade` fades the menu in; `Backdrop` keeps the star faint behind the
+  browse/search views (not the detail view). Colors blend with the terminal background,
+  queried once via termenv (OSC 11) — this must happen before Bubble Tea reads input,
+  which is why `NewFade`/`NewBackdrop` are built in `initialModel`.
 
 ## Build, run, test
 

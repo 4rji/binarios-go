@@ -18,17 +18,17 @@ func TestFadePreservesViewAndFinalColors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := fadeView(tt.view, 1); got != tt.view {
+			if got := fadeView(tt.view, darkness, 1); got != tt.view {
 				t.Errorf("completed transition changed the original view: %q", got)
 			}
-			got := fadeView(tt.view, 0.5)
+			got := fadeView(tt.view, darkness, 0.5)
 			if !strings.Contains(got, tt.halfway) {
 				t.Errorf("missing halfway colors %q in %q", tt.halfway, got)
 			}
 			if sgr.ReplaceAllString(got, "") != sgr.ReplaceAllString(tt.view, "") {
 				t.Error("transition changed view text or layout")
 			}
-			dark := fadeView(tt.view, 0)
+			dark := fadeView(tt.view, darkness, 0)
 			for _, color := range regexp.MustCompile(`(?:38|48);2;(\d+);(\d+);(\d+)`).FindAllStringSubmatch(dark, -1) {
 				if color[1] != "10" || color[2] != "5" || color[3] != "21" {
 					t.Errorf("visible color before fade-in: %q", color[0])
@@ -61,20 +61,5 @@ func TestFadeWaitsForDataAndStopsAtFullBrightness(t *testing.T) {
 	}
 	if f.Update(FadeTick(f.started.Add(menuDuration))) != nil || f.View("menu") != "menu" {
 		t.Error("completed transition kept animating or changed the final view")
-	}
-}
-
-func TestDeathStarAppearsAndFadesToDarkness(t *testing.T) {
-	star, colors := deathStar(), palette()
-	colorCodes := regexp.MustCompile(`\x1b\[38;2;\d+;\d+;\d+m`)
-	for _, progress := range []float64{0, 1} {
-		for _, code := range colorCodes.FindAllString(frame(star, colors, 2, 2, progress), -1) {
-			if code != colors[0] {
-				t.Errorf("visible Death Star at progress %.1f: %q", progress, code)
-			}
-		}
-	}
-	if codes := colorCodes.FindAllString(frame(star, colors, 2, 2, 0.5), -1); len(codes) < 2 {
-		t.Error("Death Star did not emerge into multiple brightness levels")
 	}
 }
