@@ -3,6 +3,9 @@
 Estos son fragmentos de inserción. Conserva los campos, comandos y mensajes del
 modelo real. No reemplaces sus archivos completos con estos ejemplos.
 
+Los pasos 2 a 5 agregan el fade-in (`fade.go`). Los pasos 6 y 7 agregan la
+estrella fija de fondo (`backdrop.go`) y son opcionales.
+
 ## 1. Entrada
 
 Importa el paquete local con el módulo real y ejecuta el splash antes de iniciar
@@ -17,6 +20,11 @@ func main() {
     // Conserva p.Run(), los errores y el tratamiento del modelo final.
 }
 ```
+
+`initialModel()` debe evaluarse antes de `p.Run()`, como en este ejemplo: allí se
+crean el fade y el backdrop, que pueden consultar el color de fondo al
+terminal. Si se crearan dentro de `Init`, `Update` o un comando, la respuesta
+del terminal llegaría a Bubble Tea como teclas.
 
 ## 2. Estado del modelo
 
@@ -76,10 +84,55 @@ Si el modelo usa receptores con puntero, conserva ese tipo de receptor. El
 modelo final continúa siendo el mismo tipo; no requiere envolverlo en otro
 modelo ni cambiar las comprobaciones de tipo después de `p.Run()`.
 
-## 6. Comprueba la integración
+## 6. Estrella fija de fondo (opcional)
 
-La vista debe permanecer oscura hasta completar la carga inicial. Después se
-revela en 900 ms, sin bloquear las teclas. Al acabar tiene exactamente el texto
-y los colores originales. No debe haber ticks adicionales después de ese fade.
+Requiere `tea.WithAltScreen()` y que el modelo guarde el tamaño de la ventana
+(`tea.WindowSizeMsg`); si todavía no lo hace, agrega:
+
+```go
+case tea.WindowSizeMsg:
+    m.width, m.height = msg.Width, msg.Height
+```
+
+Agrega el campo y su valor inicial junto al fade:
+
+```go
+backdrop splash.Backdrop
+```
+
+```go
+backdrop: splash.NewBackdrop(),
+```
+
+## 7. Aplica el backdrop después del fade
+
+El orden importa: el backdrop va por fuera, para que la estrella se quede quieta
+mientras el menú aparece a su alrededor.
+
+```go
+func (m Model) View() string {
+    view := m.menuFade.View(m.view())
+    // Vistas con imágenes de terminal (chafa, sixel, kitty) o más altas que la
+    // pantalla deben devolverse sin backdrop.
+    if m.mode == modoConImagenes {
+        return view
+    }
+    return m.backdrop.View(view, m.width, m.height)
+}
+```
+
+Sustituye `m.mode == modoConImagenes` por la condición real del proyecto, o
+elimina ese `if` si ninguna vista muestra imágenes.
+
+## 8. Comprueba la integración
+
+La vista debe permanecer invisible (del color del terminal) hasta completar la
+carga inicial. Después se revela en 900 ms, sin bloquear las teclas. Al acabar
+tiene exactamente el texto y los colores originales. No debe haber ticks
+adicionales después de ese fade.
+
+Con el backdrop, la estrella debe quedarse en la posición exacta en la que
+terminó el splash, tenue, detrás del texto. Prueba también con un fondo de
+terminal azul o claro: no debe aparecer ningún recuadro oscuro.
 
 Ejecuta `gofmt`, las pruebas, `go vet` y la compilación desde el módulo correcto.
