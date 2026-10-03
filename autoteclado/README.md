@@ -3,6 +3,31 @@
 Simula tecleo y movimiento de ratón "humano" (retardos aleatorios) con
 [robotgo](https://github.com/go-vgo/robotgo).
 
+## Instalación desde GitHub
+
+Necesitas Go 1.25.0 o posterior y las dependencias de compilación de tu sistema
+indicadas en la sección **Build** (robotgo usa CGO).
+
+```sh
+go install github.com/4rji/binarios-go/autoteclado@latest
+```
+
+La ruta incluye `/autoteclado` porque este repositorio contiene varias
+herramientas, cada una con su propio módulo Go.
+
+Go instala el ejecutable en `GOBIN` si está configurado, o en `$(go env GOPATH)/bin`.
+Para usarlo desde cualquier directorio, añade esa carpeta a tu `PATH`. Si usas
+la ubicación predeterminada, puedes hacerlo para la sesión actual con:
+
+```sh
+export PATH="$(go env GOPATH)/bin:$PATH"
+```
+
+```sh
+autoteclado -h
+autoteclado -t notas.txt
+```
+
 ## Uso
 
 ```sh
