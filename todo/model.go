@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/4rji/binarios-go/todo/internal/splash"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -83,6 +84,7 @@ type Model struct {
 	imageCache map[string]string // scriptName -> chafa output
 	warning    string            // temporary warning message
 	warningExp time.Time         // when warning expires
+	menuFade   splash.Fade
 }
 
 func initialModel() Model {
@@ -98,10 +100,11 @@ func initialModel() Model {
 	ti.Width = 40
 
 	return Model{
-		mode:    modeLoading,
-		spinner: sp,
-		input:   ti,
-		styles:  newStyles(),
+		mode:     modeLoading,
+		spinner:  sp,
+		input:    ti,
+		styles:   newStyles(),
+		menuFade: splash.NewFade(),
 	}
 }
 
@@ -163,6 +166,9 @@ func loadImageCmd(scriptName string) tea.Cmd {
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case splash.FadeTick:
+		cmd := m.menuFade.Update(msg)
+		return m, cmd
 
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -186,7 +192,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.filtered = msg.scripts
 		}
 		m.mode = modeBrowse
-		return m, nil
+		cmd := m.menuFade.Start()
+		return m, cmd
 
 	case contentSearchMsg:
 		if msg.err == nil {
@@ -837,6 +844,10 @@ func (m Model) viewDetail() string {
 }
 
 func (m Model) View() string {
+	return m.menuFade.View(m.view())
+}
+
+func (m Model) view() string {
 	w := m.width
 	if w == 0 {
 		w = 80

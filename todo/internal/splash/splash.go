@@ -20,7 +20,7 @@ const (
 	duration = 1800 * time.Millisecond
 	fps      = 30
 
-	enterScreen = "\x1b[?1049h\x1b[?25l\x1b[0m"
+	enterScreen = "\x1b[?1049h\x1b[?25l\x1b[0m\x1b[48;2;10;5;21m"
 	leaveScreen = "\x1b[?1049l\x1b[?25h"
 	resetColor  = "\x1b[0m"
 )
@@ -38,15 +38,11 @@ type terminalSize func() (int, int, error)
 // The normal screen, cursor and colors are restored before returning, panicking
 // or forwarding a termination signal. Input and terminal modes are not changed.
 func Play() {
+	if !canAnimate() {
+		return
+	}
 	fd := int(os.Stdout.Fd())
-	if !term.IsTerminal(fd) || os.Getenv("TERM") == "dumb" {
-		return
-	}
 	getSize := func() (int, int, error) { return term.GetSize(fd) }
-	columns, rows, err := getSize()
-	if err != nil || !fits(columns, rows) {
-		return
-	}
 
 	interrupts := make(chan os.Signal, 1)
 	signal.Notify(interrupts, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT)
@@ -73,6 +69,15 @@ func Play() {
 		}
 		os.Exit(1)
 	}
+}
+
+func canAnimate() bool {
+	fd := int(os.Stdout.Fd())
+	if !term.IsTerminal(fd) || os.Getenv("TERM") == "dumb" {
+		return false
+	}
+	columns, rows, err := term.GetSize(fd)
+	return err == nil && fits(columns, rows)
 }
 
 func fits(columns, rows int) bool {
@@ -124,6 +129,10 @@ func play(out io.Writer, getSize terminalSize, interrupts <-chan os.Signal) os.S
 		case sig := <-interrupts:
 			return sig
 		case <-timer.C:
+			// Finish at complete darkness before erasing the animation area.
+			if w, h, err := getSize(); err == nil && w == columns && h == rows {
+				_, _ = io.WriteString(out, frame(star, colors, left, top, 1))
+			}
 			return nil
 		case <-ticker.C:
 			// Stop on resize instead of drawing outside the new viewport. Cleanup
@@ -211,7 +220,7 @@ func palette() [32]string {
 	for i := range colors {
 		t := float64(i) / float64(len(colors)-1)
 		colors[i] = fmt.Sprintf("\x1b[38;2;%d;%d;%dm",
-			22+int(196*t), 28+int(197*t), 38+int(192*t))
+			10+int(208*t), 5+int(220*t), 21+int(209*t))
 	}
 	return colors
 }
@@ -220,6 +229,9 @@ func frame(star artwork, colors [32]string, left, top int, progress float64) str
 	var out strings.Builder
 	out.Grow(width * height * 12)
 	previousColor := -1
+	// Ease in for 360 ms, sweep the light across, then ease out for 396 ms.
+	visibility := smoothstep(progress/0.20) * (1 - smoothstep((progress-0.78)/0.22))
+	travel := max(0, min(1, (progress-0.18)/0.62))
 	for y, row := range star {
 		fmt.Fprintf(&out, "\x1b[%d;%dH", top+y, left)
 		for x, c := range row {
@@ -231,10 +243,10 @@ func frame(star artwork, colors [32]string, left, top int, progress float64) str
 			ny := (float64(y) + 0.5 - height/2) / (height / 2.0)
 			// A broad diagonal highlight travels left to right. A quieter sine
 			// wave follows it, so neighboring cells brighten and fade gradually.
-			distance := (nx + 0.25*ny - (-1.45 + 2.9*progress)) / 0.34
+			distance := (nx + 0.25*ny - (-1.45 + 2.9*travel)) / 0.34
 			wave := math.Exp(-distance * distance)
 			shimmer := 0.5 + 0.5*math.Sin(4*nx+2*ny-6*progress)
-			brightness := c.shade * (0.24 + 0.68*wave + 0.08*shimmer)
+			brightness := visibility * c.shade * (0.24 + 0.68*wave + 0.08*shimmer)
 			index := int(brightness * float64(len(colors)-1))
 			index = max(0, min(len(colors)-1, index))
 			if index != previousColor {
@@ -245,4 +257,9 @@ func frame(star artwork, colors [32]string, left, top int, progress float64) str
 		}
 	}
 	return out.String()
+}
+
+func smoothstep(t float64) float64 {
+	t = max(0, min(1, t))
+	return t * t * (3 - 2*t)
 }
