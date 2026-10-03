@@ -13,6 +13,10 @@ An interactive terminal UI to discover, preview and run the scripts in
   from `/opt/4rji/img-bin/{name}.{webp,png}` rendered with `chafa`.
 - View the source of a script in a pager (`bat` if available, otherwise `less`/`cat`).
 - Run the selected script; the command is copied to the clipboard first.
+- Starts with a 1.8-second, 30 FPS Death Star animation made from terminal
+  characters, with a moving gray/blue-gray light wave. It runs on interactive
+  terminals of at least 66 columns by 32 rows; redirected output and `TERM=dumb`
+  skip it. Resizing stops it, and interrupting restores the terminal before exit.
 
 ## Build & run
 
