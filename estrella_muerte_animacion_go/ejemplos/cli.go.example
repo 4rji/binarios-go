@@ -1,0 +1,15 @@
+package main
+
+import (
+	"fmt"
+
+	// Reemplaza esta ruta por el módulo declarado en el go.mod del destino.
+	"example.com/tu-proyecto/internal/splash"
+)
+
+func main() {
+	splash.Play()
+
+	// Conserva aquí la lógica original de la aplicación.
+	fmt.Println("Aplicación lista")
+}

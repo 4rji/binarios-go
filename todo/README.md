@@ -20,6 +20,9 @@ An interactive terminal UI to discover, preview and run the scripts in
   output and `TERM=dumb` skip them. Resizing stops the splash, and interrupting
   restores the terminal before exit.
 
+The reusable code, tests and Spanish LLM integration instructions are available
+in [estrella_muerte_animacion_go](estrella_muerte_animacion_go/README.md).
+
 ## Build & run
 
 ```sh
