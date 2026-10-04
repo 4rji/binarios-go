@@ -2,7 +2,7 @@
 //
 // Sin flags:   escribe texto aleatorio y mueve el ratón a puntos aleatorios
 //
-//	en bucle, hasta Ctrl+C.
+//	en bucle, con 20 segundos de pausa entre ciclos, hasta Ctrl+C.
 //
 // Con -t FILE: teclea únicamente el contenido de FILE y termina (sin ratón).
 //
@@ -26,7 +26,7 @@ import (
 func main() {
 	file := flag.String("t", "", "archivo a teclear (solo teclea su contenido y termina)")
 	minMs := flag.Int("min", 45, "retardo mínimo entre teclas en ms")
-	maxMs := flag.Int("max", 170, "retardo máximo entre teclas en ms")
+	maxMs := flag.Int("max", 500, "retardo máximo entre teclas en ms")
 	lead := flag.Int("lead", 3, "segundos de margen antes de empezar (para enfocar la ventana)")
 	flag.Parse()
 
@@ -63,7 +63,15 @@ func main() {
 		}
 		randomMouseMove()
 		typeText(randomText(), *minMs, *maxMs)
-		sleepRand(400, 1200)
+		fmt.Fprintln(os.Stderr, "pausa de 20 segundos...")
+		timer := time.NewTimer(20 * time.Second)
+		select {
+		case <-stop:
+			timer.Stop()
+			fmt.Fprintln(os.Stderr, "\nParado.")
+			return
+		case <-timer.C:
+		}
 	}
 }
 

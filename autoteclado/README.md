@@ -31,7 +31,7 @@ autoteclado -t notas.txt
 ## Uso
 
 ```sh
-# Modo aleatorio: escribe texto aleatorio y mueve el ratón sin parar (Ctrl+C para salir)
+# Modo aleatorio: mueve el ratón, escribe y pausa 20 segundos entre ciclos (Ctrl+C para salir)
 go run .
 
 # Teclear solo el contenido de un archivo y terminar (no mueve el ratón)
@@ -44,11 +44,15 @@ Flags:
 |---------|-------------|----------------------------------------------------|
 | `-t`    | —           | archivo a teclear; si se indica, solo teclea y sale |
 | `-min`  | `45`        | retardo mínimo entre teclas (ms)                   |
-| `-max`  | `170`       | retardo máximo entre teclas (ms)                   |
+| `-max`  | `500`       | retardo máximo entre teclas (ms)                   |
 | `-lead` | `3`         | segundos de margen antes de empezar (para enfocar la ventana) |
 
 Durante los segundos de `-lead` tienes que hacer clic en la ventana donde
 quieres que escriba (editor, terminal, navegador…).
+
+En modo aleatorio, después de mover el ratón y escribir, espera 20 segundos
+sin generar entradas antes de repetir el ciclo, para que puedas usar el equipo.
+Puedes salir con Ctrl+C también durante la pausa.
 
 ## Build
 
