@@ -8,6 +8,7 @@ struct Configuration: Sendable {
     var once = false
     var mode: OCRMode = .normal
     var help = false
+    var menuBar = false
 
     init(arguments: [String]) throws {
         var index = 0
@@ -15,6 +16,7 @@ struct Configuration: Sendable {
             switch arguments[index] {
             case "--help", "-h": help = true
             case "--once": once = true
+            case "--menu-bar": menuBar = true
             case "--mode":
                 index += 1
                 guard index < arguments.count, let mode = OCRMode(rawValue: arguments[index]) else {
@@ -30,9 +32,10 @@ struct Configuration: Sendable {
     static let usage = """
     MacOCR — local screen OCR for macOS 14+ (Apple Silicon)
 
-    Usage: macocr [--once] [--mode normal|code] [--help]
+    Usage: macocr [--once] [--mode normal|code] [--menu-bar] [--help]
 
       --once          Select a region, recognize, copy, and exit.
+      --menu-bar      Show a status icon, history, and Quit menu.
       --mode normal   Readable lines and paragraphs (default).
       --mode code     Estimate indentation and column spacing from geometry.
       --help, -h      Show this help.
