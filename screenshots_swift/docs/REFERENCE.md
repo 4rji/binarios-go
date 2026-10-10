@@ -1,6 +1,6 @@
 # MacOCR reference
 
-A lightweight native macOS command-line OCR service. Press **Command + Shift + 2**, drag a screen rectangle, and paste the recognized text. MacOCR has no window, menu-bar item, or Dock icon. The system's native screenshot selector appears only during capture.
+A lightweight native macOS OCR service. Press **Command + Shift + 2**, drag a screen rectangle, and paste the recognized text. The terminal version has no window or Dock icon. The app bundle and `--menu-bar` option add a status icon, session history, and a Quit menu. The system's native screenshot selector appears only during capture.
 
 Swift, Vision, AppKit, Carbon, and `/usr/sbin/screencapture` are the only runtime components. No packages, external OCR engines, network calls, cloud processing, or telemetry. Requires macOS 14+ and Apple Silicon. Build with Swift 6+ (Xcode or the corresponding Command Line Tools).
 
@@ -28,6 +28,7 @@ macocr --mode normal
 macocr --mode code
 macocr --once --mode code
 macocr --help
+macocr --menu-bar            # status icon, history, and Quit menu
 ```
 
 The examples assume the executable's directory is on your PATH. You can instead invoke it by its full path. For unattended use, copy it to a stable per-user location such as `$HOME/.local/bin/macocr`. No Xcode project, app bundle, administrator rights, or Python installation is needed.

@@ -176,7 +176,7 @@ private final class OCRService {
             try ClipboardManager().copy(entry.text)
             status = .ready
             statusMessage = "Copied \(entry.text.count) characters from history."
-            log(statusMessage!)
+            log("Copied \(entry.text.count) characters from history.")
         } catch {
             status = .error
             statusMessage = error.localizedDescription
