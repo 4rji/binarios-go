@@ -43,8 +43,10 @@ type terminalSize func() (int, int, error)
 // Play runs for 1.8 seconds on interactive terminals of at least 66 by 32 cells
 // and ends on the faint Death Star that [Backdrop] keeps on screen afterwards.
 // Redirected output, dumb terminals, size changes and I/O errors skip the splash.
+// Any keypress also ends it early, landing on the same resting frame.
 // The normal screen, cursor and colors are restored before returning, panicking
-// or forwarding a termination signal. Input and terminal modes are not changed.
+// or forwarding a termination signal. Terminal modes are restored before Play
+// returns, so Bubble Tea's own raw-mode setup afterwards is unaffected.
 func Play() {
 	if !canAnimate() {
 		return
@@ -56,7 +58,10 @@ func Play() {
 	signal.Notify(interrupts, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT)
 	defer signal.Stop(interrupts)
 
-	sig := play(os.Stdout, getSize, interrupts, terminalBackground())
+	keys, stopKeys := keypresses()
+	defer stopKeys()
+
+	sig := play(os.Stdout, getSize, interrupts, keys, terminalBackground())
 	// Stop only our handler, after cleanup. Drain any signal received during
 	// cleanup so an interrupt cannot accidentally start the normal application.
 	signal.Stop(interrupts)
@@ -79,6 +84,61 @@ func Play() {
 	}
 }
 
+// keypresses puts stdin into raw mode and reports the first byte read on the
+// returned channel, so a single keystroke (no Enter needed) can skip the
+// splash. The returned stop func must run before Bubble Tea reads stdin: it
+// stops the reader goroutine and restores stdin's mode and deadline, so no
+// keystroke meant for the TUI is stolen. If stdin isn't a terminal or raw
+// mode can't be entered, it returns a nil channel (blocks forever) and a
+// no-op stop, leaving the timer as the only way the splash ends.
+func keypresses() (<-chan struct{}, func()) {
+	fd := int(os.Stdin.Fd())
+	if !term.IsTerminal(fd) {
+		return nil, func() {}
+	}
+	oldState, err := term.MakeRaw(fd)
+	if err != nil {
+		return nil, func() {}
+	}
+
+	keys := make(chan struct{}, 1)
+	done := make(chan struct{})
+	exited := make(chan struct{})
+	go func() {
+		defer close(exited)
+		buf := make([]byte, 1)
+		for {
+			select {
+			case <-done:
+				return
+			default:
+			}
+			if err := os.Stdin.SetReadDeadline(time.Now().Add(50 * time.Millisecond)); err != nil {
+				return
+			}
+			n, err := os.Stdin.Read(buf)
+			if n > 0 {
+				select {
+				case keys <- struct{}{}:
+				default:
+				}
+				return
+			}
+			if err != nil && !os.IsTimeout(err) {
+				return
+			}
+		}
+	}()
+
+	stop := func() {
+		close(done)
+		<-exited
+		_ = os.Stdin.SetReadDeadline(time.Time{})
+		_ = term.Restore(fd, oldState)
+	}
+	return keys, stop
+}
+
 func interactive() bool {
 	return term.IsTerminal(int(os.Stdout.Fd())) && os.Getenv("TERM") != "dumb"
 }
@@ -96,7 +156,7 @@ func fits(columns, rows int) bool {
 	return columns >= width+2 && rows >= height+2
 }
 
-func play(out io.Writer, getSize terminalSize, interrupts <-chan os.Signal, bg rgb) os.Signal {
+func play(out io.Writer, getSize terminalSize, interrupts <-chan os.Signal, keys <-chan struct{}, bg rgb) os.Signal {
 	columns, rows, err := getSize()
 	if err != nil || !fits(columns, rows) {
 		return nil
@@ -138,6 +198,13 @@ func play(out io.Writer, getSize terminalSize, interrupts <-chan os.Signal, bg r
 		select {
 		case sig := <-interrupts:
 			return sig
+		case <-keys:
+			// A keypress skips straight to the resting backdrop, same as a
+			// natural finish, instead of erasing mid-animation.
+			if w, h, err := getSize(); err == nil && w == columns && h == rows {
+				_, _ = io.WriteString(out, frame(star, bg, left, top, 1))
+			}
+			return nil
 		case <-timer.C:
 			// Finish on the resting backdrop before erasing the animation area.
 			if w, h, err := getSize(); err == nil && w == columns && h == rows {
