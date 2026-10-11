@@ -35,6 +35,14 @@ Convert text passed directly on the command line:
 go run . "Hello, this is a voice test"
 ```
 
+Control the speaking style with `-instructions`, followed by instructions in quotes. Put this option before the text to read:
+
+```bash
+./script -instructions "Habla en español, con tono cálido y pausado." "Hola, esta es una prueba de voz."
+```
+
+Here, `string` in the help menu means a text value; replace it with your instructions. These instructions replace the default speaking style. The CLI omits them when using `tts-1` or `tts-1-hd`.
+
 Convert a text file. A single argument that matches an existing file is read automatically:
 
 ```bash

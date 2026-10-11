@@ -276,6 +276,7 @@ func printUsage(flags *flag.FlagSet) {
 	fmt.Fprintln(out, "  go run . article.txt")
 	fmt.Fprintln(out, "  go run . --file article.txt")
 	fmt.Fprintln(out, "  ./script \"Text to turn into speech\"")
+	fmt.Fprintln(out, "  ./script -instructions \"Habla en español, con tono cálido y pausado.\" \"Hola, esta es una prueba de voz.\"")
 	fmt.Fprintf(out, "\n%sWHAT IT DOES%s\n", colorCyan, colorReset)
 	fmt.Fprintln(out, "  1. Reads text from an argument, file, or stdin.")
 	fmt.Fprintln(out, "  2. Creates an MP3 with OpenAI TTS.")

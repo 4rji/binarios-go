@@ -58,10 +58,15 @@ func Play() {
 	signal.Notify(interrupts, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT)
 	defer signal.Stop(interrupts)
 
+	// Resolve the background color's own OSC query/response on stdin before
+	// starting the key reader below: both read the same tty, and the reader's
+	// polling would otherwise race termenv for the reply bytes.
+	bg := terminalBackground()
+
 	keys, stopKeys := keypresses()
 	defer stopKeys()
 
-	sig := play(os.Stdout, getSize, interrupts, keys, terminalBackground())
+	sig := play(os.Stdout, getSize, interrupts, keys, bg)
 	// Stop only our handler, after cleanup. Drain any signal received during
 	// cleanup so an interrupt cannot accidentally start the normal application.
 	signal.Stop(interrupts)

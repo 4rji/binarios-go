@@ -26,6 +26,7 @@ var (
 // reply cannot be mistaken for keystrokes.
 func terminalBackground() rgb {
 	backgroundOnce.Do(func() {
+		fmt.Fprintln(os.Stderr, "DEBUG: querying background")
 		if color := termenv.NewOutput(os.Stdout).BackgroundColor(); color != nil {
 			c := termenv.ConvertToRGB(color)
 			background = rgb{int(c.R*255 + 0.5), int(c.G*255 + 0.5), int(c.B*255 + 0.5)}
