@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
@@ -9,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"os"
 	"os/exec"
@@ -64,6 +66,14 @@ func main() {
 }
 
 func run(args []string) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("find home directory: %w", err)
+	}
+	settings, err := readVoicesEnv(filepath.Join(home, ".voices_env"))
+	if err != nil {
+		return err
+	}
 	workingDir, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("get current directory: %w", err)
@@ -72,10 +82,10 @@ func run(args []string) error {
 	flags := flag.NewFlagSet("script", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	cfg := config{}
-	flags.StringVar(&cfg.model, "model", envOr("OPENAI_TTS_MODEL", defaultModel), "TTS model")
-	flags.StringVar(&cfg.voice, "voice", envOr("OPENAI_TTS_VOICE", defaultVoice), "TTS voice")
-	flags.StringVar(&cfg.instructions, "instructions", envOr("OPENAI_TTS_INSTRUCTIONS", defaultInstructions), "speaking style instructions")
-	flags.Float64Var(&cfg.speed, "speed", envFloat("OPENAI_TTS_SPEED", defaultSpeed), "speech speed")
+	flags.StringVar(&cfg.model, "model", settings.value("OPENAI_TTS_MODEL", defaultModel), "TTS model")
+	flags.StringVar(&cfg.voice, "voice", settings.value("OPENAI_TTS_VOICE", defaultVoice), "TTS voice")
+	flags.StringVar(&cfg.instructions, "instructions", settings.value("OPENAI_TTS_INSTRUCTIONS", defaultInstructions), "speaking style instructions")
+	flags.Float64Var(&cfg.speed, "speed", defaultSpeed, "speech speed")
 	flags.StringVar(&cfg.outputDir, "output-dir", filepath.Join(workingDir, "voces"), "output directory")
 	inputFile := flags.String("file", "", "read text from a file (use - for stdin)")
 	noPlay := flags.Bool("no-play", false, "create the MP3 without playing it")
@@ -93,6 +103,18 @@ func run(args []string) error {
 		return err
 	}
 	cfg.play = !*noPlay
+	speedFlag := false
+	flags.Visit(func(f *flag.Flag) {
+		if f.Name == "speed" {
+			speedFlag = true
+		}
+	})
+	if !speedFlag {
+		cfg.speed, err = strconv.ParseFloat(settings.value("OPENAI_TTS_SPEED", "0.98"), 64)
+		if err != nil {
+			return errors.New("OPENAI_TTS_SPEED must be a number")
+		}
+	}
 	text, source, err := resolveInput(*inputFile, flags.Args())
 	if err != nil {
 		return err
@@ -101,7 +123,7 @@ func run(args []string) error {
 		flags.Usage()
 		return errors.New("no text was provided")
 	}
-	if cfg.speed <= 0 {
+	if cfg.speed <= 0 || math.IsNaN(cfg.speed) || math.IsInf(cfg.speed, 0) {
 		return errors.New("speed must be greater than zero")
 	}
 
@@ -119,7 +141,7 @@ func run(args []string) error {
 		request.Instructions = ""
 	}
 
-	filePath, cached, err := ensureAudio(cfg.outputDir, request)
+	filePath, cached, err := ensureAudio(cfg.outputDir, request, settings.value("OPENAI_API_KEY", ""))
 	if err != nil {
 		return err
 	}
@@ -138,7 +160,7 @@ func run(args []string) error {
 	return nil
 }
 
-func ensureAudio(outputDir string, request speechRequest) (string, bool, error) {
+func ensureAudio(outputDir string, request speechRequest, apiKey string) (string, bool, error) {
 	payload, err := json.Marshal(request)
 	if err != nil {
 		return "", false, fmt.Errorf("prepare request: %w", err)
@@ -151,7 +173,7 @@ func ensureAudio(outputDir string, request speechRequest) (string, bool, error) 
 		return filePath, true, nil
 	}
 
-	apiKey := strings.TrimSpace(os.Getenv("OPENAI_API_KEY"))
+	apiKey = strings.TrimSpace(apiKey)
 	if apiKey == "" {
 		return "", false, errors.New("set OPENAI_API_KEY to create new audio")
 	}
@@ -285,6 +307,8 @@ func printUsage(flags *flag.FlagSet) {
 	flags.PrintDefaults()
 	fmt.Fprintf(out, "\n%sSETUP%s\n", colorCyan, colorReset)
 	fmt.Fprintln(out, "  export OPENAI_API_KEY=\"sk-...\"")
+	fmt.Fprintln(out, "  Settings are read automatically from ~/.voices_env.")
+	fmt.Fprintln(out, "  Priority: command options > environment > ~/.voices_env > defaults.")
 	fmt.Fprintf(out, "\n%sTIP%s  Use --no-play on servers without audio.\n\n", colorYellow, colorReset)
 }
 
@@ -321,21 +345,54 @@ func slug(text string) string {
 	return value
 }
 
-func envOr(name, fallback string) string {
-	if value := strings.TrimSpace(os.Getenv(name)); value != "" {
+type voiceSettings map[string]string
+
+func (s voiceSettings) value(name, fallback string) string {
+	if value, ok := os.LookupEnv(name); ok {
+		return strings.TrimSpace(value)
+	}
+	if value, ok := s[name]; ok {
 		return value
 	}
 	return fallback
 }
 
-func envFloat(name string, fallback float64) float64 {
-	value := strings.TrimSpace(os.Getenv(name))
-	if value == "" {
-		return fallback
+// readVoicesEnv reads literal values, without executing shell commands or expanding variables.
+func readVoicesEnv(path string) (voiceSettings, error) {
+	file, err := os.Open(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return voiceSettings{}, nil
 	}
-	parsed, err := strconv.ParseFloat(value, 64)
 	if err != nil {
-		return fallback
+		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
-	return parsed
+	defer file.Close()
+	settings := voiceSettings{}
+	scanner := bufio.NewScanner(file)
+	for line := 1; scanner.Scan(); line++ {
+		text := strings.TrimSpace(scanner.Text())
+		if text == "" || strings.HasPrefix(text, "#") {
+			continue
+		}
+		text = strings.TrimPrefix(text, "export ")
+		name, value, ok := strings.Cut(text, "=")
+		name, value = strings.TrimSpace(name), strings.TrimSpace(value)
+		if !ok || name == "" {
+			return nil, fmt.Errorf("%s:%d: expected NAME=value", path, line)
+		}
+		if strings.HasPrefix(value, "\"") || strings.HasPrefix(value, "'") {
+			if len(value) < 2 || value[len(value)-1] != value[0] {
+				return nil, fmt.Errorf("%s:%d: unclosed quote", path, line)
+			}
+			value = value[1 : len(value)-1]
+		}
+		switch name {
+		case "OPENAI_TTS_MODEL", "OPENAI_TTS_VOICE", "OPENAI_TTS_SPEED", "OPENAI_TTS_INSTRUCTIONS", "OPENAI_API_KEY":
+			settings[name] = value
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	return settings, nil
 }

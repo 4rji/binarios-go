@@ -79,6 +79,34 @@ The output is written to `voces/` in the directory where the command was launche
 
 The program also reads `OPENAI_TTS_MODEL`, `OPENAI_TTS_VOICE`, `OPENAI_TTS_SPEED`, and `OPENAI_TTS_INSTRUCTIONS`.
 
+## Persistent CLI settings
+
+The Go CLI and `./script` automatically read `~/.voices_env` at startup. To create it, copy the example from this directory (without overwriting an existing file):
+
+```bash
+cp -n voices_env.example ~/.voices_env
+chmod 600 ~/.voices_env
+```
+
+Edit it with your preferred values:
+
+```dotenv
+OPENAI_TTS_MODEL=gpt-4o-mini-tts
+OPENAI_TTS_VOICE=cedar
+OPENAI_TTS_SPEED=0.98
+OPENAI_TTS_INSTRUCTIONS="Habla en español, con tono natural, claro y conversacional."
+```
+
+You may also set `OPENAI_API_KEY` in this file. Priority is command options, then environment variables (including explicitly empty values), then the file, then built-in defaults. Put options before the text:
+
+```bash
+./script --voice cedar --speed 1.1 "Hola, esta es una prueba."
+```
+
+Changes apply on the next invocation. A missing file is fine. Blank lines, full-line `#` comments, optional `export`, and single or double quotes are supported. Values are literal: shell commands and variable references are never expanded. Only the five settings above are read. Malformed assignments report the file and line without printing their values.
+
+This file configures the standalone Go CLI; the presentation's JavaScript service continues to read its process environment.
+
 ## Long files
 
 Before sending the request, the CLI prints the character count and an approximate token count. Inputs estimated at 1,000 tokens or more display a warning because longer requests use more billable input tokens and may cost more.

@@ -89,13 +89,21 @@ func Play() {
 	}
 }
 
-// keypresses puts stdin into raw mode and reports the first byte read on the
-// returned channel, so a single keystroke (no Enter needed) can skip the
-// splash. The returned stop func must run before Bubble Tea reads stdin: it
-// stops the reader goroutine and restores stdin's mode and deadline, so no
-// keystroke meant for the TUI is stolen. If stdin isn't a terminal or raw
-// mode can't be entered, it returns a nil channel (blocks forever) and a
-// no-op stop, leaving the timer as the only way the splash ends.
+// keypresses puts the terminal into raw mode and reports the first byte read
+// on the returned channel, so a single keystroke (no Enter needed) can skip
+// the splash. Polling uses a dedicated, non-blocking /dev/tty descriptor
+// rather than stdin directly, for two reasons: ttys do not support file
+// deadlines on at least Darwin, so a deadline-based read on os.Stdin would
+// never see a keystroke; and stdin, stdout and stderr usually share one open
+// file description from the shell, so making stdin non-blocking via fcntl
+// would make stdout's writes non-blocking too, risking a short write that
+// aborts the animation early. Opening /dev/tty again gets an independent
+// file description with its own O_NONBLOCK flag, leaving stdin and stdout
+// untouched. The returned stop func must run before Bubble Tea reads stdin:
+// it stops the reader goroutine and restores the termios state, so no
+// keystroke meant for the TUI is stolen. If the terminal isn't available,
+// it returns a nil channel (blocks forever) and a no-op stop, leaving the
+// timer as the only way the splash ends.
 func keypresses() (<-chan struct{}, func()) {
 	fd := int(os.Stdin.Fd())
 	if !term.IsTerminal(fd) {
@@ -103,6 +111,11 @@ func keypresses() (<-chan struct{}, func()) {
 	}
 	oldState, err := term.MakeRaw(fd)
 	if err != nil {
+		return nil, func() {}
+	}
+	ttyFd, err := syscall.Open("/dev/tty", syscall.O_RDONLY|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		_ = term.Restore(fd, oldState)
 		return nil, func() {}
 	}
 
@@ -118,10 +131,7 @@ func keypresses() (<-chan struct{}, func()) {
 				return
 			default:
 			}
-			if err := os.Stdin.SetReadDeadline(time.Now().Add(50 * time.Millisecond)); err != nil {
-				return
-			}
-			n, err := os.Stdin.Read(buf)
+			n, err := syscall.Read(ttyFd, buf)
 			if n > 0 {
 				select {
 				case keys <- struct{}{}:
@@ -129,16 +139,17 @@ func keypresses() (<-chan struct{}, func()) {
 				}
 				return
 			}
-			if err != nil && !os.IsTimeout(err) {
+			if err != nil && err != syscall.EAGAIN && err != syscall.EWOULDBLOCK && err != syscall.EINTR {
 				return
 			}
+			time.Sleep(20 * time.Millisecond)
 		}
 	}()
 
 	stop := func() {
 		close(done)
 		<-exited
-		_ = os.Stdin.SetReadDeadline(time.Time{})
+		_ = syscall.Close(ttyFd)
 		_ = term.Restore(fd, oldState)
 	}
 	return keys, stop

@@ -1,0 +1,8 @@
+# Copy this file to ~/.voices_env. Changes apply on the next CLI invocation.
+OPENAI_TTS_MODEL=gpt-4o-mini-tts
+OPENAI_TTS_VOICE=cedar
+OPENAI_TTS_SPEED=0.98
+OPENAI_TTS_INSTRUCTIONS="Habla en español, con tono natural, claro y conversacional."
+
+# Optional: your API key can be kept here instead of exporting it in the shell.
+# OPENAI_API_KEY="your-api-key"
