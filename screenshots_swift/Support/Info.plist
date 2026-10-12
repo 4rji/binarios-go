@@ -6,6 +6,7 @@
     <key>CFBundleName</key><string>MacOCR</string>
     <key>CFBundleDisplayName</key><string>MacOCR</string>
     <key>CFBundleExecutable</key><string>macocr</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>1.1.0</string>
     <key>CFBundleVersion</key><string>2</string>
