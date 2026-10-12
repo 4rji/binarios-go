@@ -118,6 +118,7 @@ func keypresses() (<-chan struct{}, func()) {
 		_ = term.Restore(fd, oldState)
 		return nil, func() {}
 	}
+	drainPending(ttyFd)
 
 	keys := make(chan struct{}, 1)
 	done := make(chan struct{})
@@ -132,9 +133,6 @@ func keypresses() (<-chan struct{}, func()) {
 			default:
 			}
 			n, err := syscall.Read(ttyFd, buf)
-			if n > 0 || err != nil {
-				fmt.Fprintln(os.Stderr, "DEBUG: read n=", n, "byte=", buf[0], "err=", err)
-			}
 			if n > 0 {
 				select {
 				case keys <- struct{}{}:
@@ -156,6 +154,23 @@ func keypresses() (<-chan struct{}, func()) {
 		_ = term.Restore(fd, oldState)
 	}
 	return keys, stop
+}
+
+// drainPending discards whatever is already waiting to be read on fd. Bubble
+// Tea's init hook (see its tea_init.go) runs its own lipgloss background-color
+// probe before main starts, independent of this package's own query in
+// terminalBackground; under some launchers the probe's terminal reply can
+// still be arriving when this runs. Without draining it first, that reply's
+// leading byte would be mistaken for a keystroke skipping the splash the
+// instant it starts, before the user ever touched a key.
+func drainPending(fd int) {
+	buf := make([]byte, 64)
+	for {
+		n, err := syscall.Read(fd, buf)
+		if n <= 0 || err != nil {
+			return
+		}
+	}
 }
 
 func interactive() bool {
