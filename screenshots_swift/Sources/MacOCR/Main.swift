@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import Darwin
 
 @main
@@ -34,7 +35,8 @@ enum MacOCR {
 private final class OCRService {
     private let configuration: Configuration
     private let capture = ScreenCapture()
-    private var hotkey: HotkeyManager?
+    private var captureHotkey: HotkeyManager?
+    private var typeHotkey: HotkeyManager?
     private var signals: [DispatchSourceSignal] = []
     private var busy = false
     private var shuttingDown = false
@@ -64,9 +66,14 @@ private final class OCRService {
         if configuration.once {
             DispatchQueue.main.async { [weak self] in self?.trigger() }
         } else {
-            let manager = HotkeyManager { [weak self] in self?.trigger() }
+            let manager = HotkeyManager(keyCode: UInt32(kVK_ANSI_2), modifiers: UInt32(cmdKey | shiftKey),
+                                         id: 1, description: "Command + Shift + 2") { [weak self] in self?.trigger() }
             try manager.register()
-            hotkey = manager
+            captureHotkey = manager
+            let typist = HotkeyManager(keyCode: UInt32(kVK_ANSI_2), modifiers: UInt32(optionKey | shiftKey),
+                                        id: 2, description: "Option + Shift + 2") { [weak self] in self?.triggerTypeClipboard() }
+            try typist.register()
+            typeHotkey = typist
             if showsMenuBar {
                 menuBar = MenuBarController(
                     onCapture: { [weak self] in self?.trigger() },
@@ -86,7 +93,7 @@ private final class OCRService {
                 )
                 refreshMenu()
             }
-            log("Ready (\(configuration.mode.rawValue) mode). Press Command + Shift + 2; Control-C to stop.")
+            log("Ready (\(configuration.mode.rawValue) mode). Press Command + Shift + 2 to capture, Option + Shift + 2 to type the clipboard; Control-C to stop.")
         }
     }
 
@@ -151,10 +158,57 @@ private final class OCRService {
         }
     }
 
+    private func triggerTypeClipboard() {
+        guard !shuttingDown else { return }
+        guard !busy else {
+            log("Capture or typing is still in progress; please wait.")
+            return
+        }
+        guard let text = NSPasteboard.general.string(forType: .string), !text.isEmpty else {
+            log("Clipboard is empty or does not contain text.")
+            return
+        }
+        if text.count > KeyboardTyper.confirmationThreshold {
+            let alert = NSAlert()
+            alert.messageText = "Type \(text.count) characters?"
+            alert.informativeText = "This simulates keyboard input into the active app, one keystroke at a time, which takes a few seconds for long text."
+            alert.addButton(withTitle: "Type")
+            alert.addButton(withTitle: "Cancel")
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            guard alert.runModal() == .alertFirstButtonReturn else {
+                log("Typing canceled; clipboard unchanged.")
+                return
+            }
+        }
+        busy = true
+        status = .typing
+        statusMessage = "Typing \(text.count) characters…"
+        refreshMenu()
+        Task {
+            defer {
+                busy = false
+                refreshMenu()
+                if !shuttingDown { log("Ready (Command + Shift + 2 to capture, Option + Shift + 2 to type).") }
+            }
+            do {
+                try await KeyboardTyper().type(text)
+                guard !shuttingDown else { return }
+                status = .ready
+                statusMessage = "Typed \(text.count) characters."
+                log("Typed \(text.count) characters from the clipboard.")
+            } catch {
+                status = .error
+                statusMessage = error.localizedDescription
+                log(error.localizedDescription)
+            }
+        }
+    }
+
     private func shutdown(code: Int32) {
         guard !shuttingDown else { return }
         shuttingDown = true
-        hotkey?.unregister()
+        captureHotkey?.unregister()
+        typeHotkey?.unregister()
         menuBar?.remove()
         history.clear()
         capture.stop()

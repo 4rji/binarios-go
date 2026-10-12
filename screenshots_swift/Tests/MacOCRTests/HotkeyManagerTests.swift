@@ -6,11 +6,13 @@ final class HotkeyManagerTests: XCTestCase {
     @MainActor
     func testNativeDispatchConflictAndUnregistration() async throws {
         var activations = 0
-        let manager = HotkeyManager { activations += 1 }
+        let manager = HotkeyManager(keyCode: UInt32(kVK_ANSI_2), modifiers: UInt32(cmdKey | shiftKey),
+                                     id: 1, description: "Command + Shift + 2") { activations += 1 }
         do { try manager.register() }
         catch { throw XCTSkip("Interactive hotkey registration unavailable: \(error.localizedDescription)") }
         defer { manager.unregister() }
-        let duplicate = HotkeyManager {}
+        let duplicate = HotkeyManager(keyCode: UInt32(kVK_ANSI_2), modifiers: UInt32(cmdKey | shiftKey),
+                                       id: 1, description: "Command + Shift + 2") {}
         XCTAssertThrowsError(try duplicate.register())
         defer { duplicate.unregister() }
 

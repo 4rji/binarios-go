@@ -1,13 +1,14 @@
 import AppKit
 
 enum OCRStatus {
-    case ready, selecting, recognizing, error
+    case ready, selecting, recognizing, typing, error
 
     var title: String {
         switch self {
         case .ready: return "MacOCR — Ready"
         case .selecting: return "MacOCR — Selecting region"
         case .recognizing: return "MacOCR — Recognizing text…"
+        case .typing: return "MacOCR — Typing clipboard…"
         case .error: return "MacOCR — Attention needed"
         }
     }
@@ -17,6 +18,7 @@ enum OCRStatus {
         case .ready: return "text.viewfinder"
         case .selecting: return "viewfinder"
         case .recognizing: return "hourglass"
+        case .typing: return "keyboard"
         case .error: return "exclamationmark.triangle"
         }
     }

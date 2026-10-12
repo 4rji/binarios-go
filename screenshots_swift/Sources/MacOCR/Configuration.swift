@@ -44,6 +44,11 @@ struct Configuration: Sendable {
     Escape cancels. Control-C stops the service. Screen Recording permission
     is required; OCR is performed entirely on this Mac.
     Code spacing is approximate, especially for proportional fonts.
+
+    Press Option + Shift + 2 to type the current clipboard text into the
+    active app by simulating keystrokes, useful when a virtual machine or
+    remote-desktop window captures the keyboard but won't accept Paste.
+    Clipboard text over 200 characters asks for confirmation first.
     """
 }
 
