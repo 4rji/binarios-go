@@ -43,10 +43,8 @@ type terminalSize func() (int, int, error)
 // Play runs for 1.8 seconds on interactive terminals of at least 66 by 32 cells
 // and ends on the faint Death Star that [Backdrop] keeps on screen afterwards.
 // Redirected output, dumb terminals, size changes and I/O errors skip the splash.
-// Any keypress also ends it early, landing on the same resting frame.
 // The normal screen, cursor and colors are restored before returning, panicking
-// or forwarding a termination signal. Terminal modes are restored before Play
-// returns, so Bubble Tea's own raw-mode setup afterwards is unaffected.
+// or forwarding a termination signal. Input and terminal modes are not changed.
 func Play() {
 	if !canAnimate() {
 		return
@@ -58,15 +56,7 @@ func Play() {
 	signal.Notify(interrupts, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT)
 	defer signal.Stop(interrupts)
 
-	// Resolve the background color's own OSC query/response on stdin before
-	// starting the key reader below: both read the same tty, and the reader's
-	// polling would otherwise race termenv for the reply bytes.
-	bg := terminalBackground()
-
-	keys, stopKeys := keypresses()
-	defer stopKeys()
-
-	sig := play(os.Stdout, getSize, interrupts, keys, bg)
+	sig := play(os.Stdout, getSize, interrupts, terminalBackground())
 	// Stop only our handler, after cleanup. Drain any signal received during
 	// cleanup so an interrupt cannot accidentally start the normal application.
 	signal.Stop(interrupts)
@@ -89,90 +79,6 @@ func Play() {
 	}
 }
 
-// keypresses puts the terminal into raw mode and reports the first byte read
-// on the returned channel, so a single keystroke (no Enter needed) can skip
-// the splash. Polling uses a dedicated, non-blocking /dev/tty descriptor
-// rather than stdin directly, for two reasons: ttys do not support file
-// deadlines on at least Darwin, so a deadline-based read on os.Stdin would
-// never see a keystroke; and stdin, stdout and stderr usually share one open
-// file description from the shell, so making stdin non-blocking via fcntl
-// would make stdout's writes non-blocking too, risking a short write that
-// aborts the animation early. Opening /dev/tty again gets an independent
-// file description with its own O_NONBLOCK flag, leaving stdin and stdout
-// untouched. The returned stop func must run before Bubble Tea reads stdin:
-// it stops the reader goroutine and restores the termios state, so no
-// keystroke meant for the TUI is stolen. If the terminal isn't available,
-// it returns a nil channel (blocks forever) and a no-op stop, leaving the
-// timer as the only way the splash ends.
-func keypresses() (<-chan struct{}, func()) {
-	fd := int(os.Stdin.Fd())
-	if !term.IsTerminal(fd) {
-		return nil, func() {}
-	}
-	oldState, err := term.MakeRaw(fd)
-	if err != nil {
-		return nil, func() {}
-	}
-	ttyFd, err := syscall.Open("/dev/tty", syscall.O_RDONLY|syscall.O_NONBLOCK, 0)
-	if err != nil {
-		_ = term.Restore(fd, oldState)
-		return nil, func() {}
-	}
-	drainPending(ttyFd)
-
-	keys := make(chan struct{}, 1)
-	done := make(chan struct{})
-	exited := make(chan struct{})
-	go func() {
-		defer close(exited)
-		buf := make([]byte, 1)
-		for {
-			select {
-			case <-done:
-				return
-			default:
-			}
-			n, err := syscall.Read(ttyFd, buf)
-			if n > 0 {
-				select {
-				case keys <- struct{}{}:
-				default:
-				}
-				return
-			}
-			if err != nil && err != syscall.EAGAIN && err != syscall.EWOULDBLOCK && err != syscall.EINTR {
-				return
-			}
-			time.Sleep(20 * time.Millisecond)
-		}
-	}()
-
-	stop := func() {
-		close(done)
-		<-exited
-		_ = syscall.Close(ttyFd)
-		_ = term.Restore(fd, oldState)
-	}
-	return keys, stop
-}
-
-// drainPending discards whatever is already waiting to be read on fd. Bubble
-// Tea's init hook (see its tea_init.go) runs its own lipgloss background-color
-// probe before main starts, independent of this package's own query in
-// terminalBackground; under some launchers the probe's terminal reply can
-// still be arriving when this runs. Without draining it first, that reply's
-// leading byte would be mistaken for a keystroke skipping the splash the
-// instant it starts, before the user ever touched a key.
-func drainPending(fd int) {
-	buf := make([]byte, 64)
-	for {
-		n, err := syscall.Read(fd, buf)
-		if n <= 0 || err != nil {
-			return
-		}
-	}
-}
-
 func interactive() bool {
 	return term.IsTerminal(int(os.Stdout.Fd())) && os.Getenv("TERM") != "dumb"
 }
@@ -190,7 +96,7 @@ func fits(columns, rows int) bool {
 	return columns >= width+2 && rows >= height+2
 }
 
-func play(out io.Writer, getSize terminalSize, interrupts <-chan os.Signal, keys <-chan struct{}, bg rgb) os.Signal {
+func play(out io.Writer, getSize terminalSize, interrupts <-chan os.Signal, bg rgb) os.Signal {
 	columns, rows, err := getSize()
 	if err != nil || !fits(columns, rows) {
 		return nil
@@ -232,13 +138,6 @@ func play(out io.Writer, getSize terminalSize, interrupts <-chan os.Signal, keys
 		select {
 		case sig := <-interrupts:
 			return sig
-		case <-keys:
-			// A keypress skips straight to the resting backdrop, same as a
-			// natural finish, instead of erasing mid-animation.
-			if w, h, err := getSize(); err == nil && w == columns && h == rows {
-				_, _ = io.WriteString(out, frame(star, bg, left, top, 1))
-			}
-			return nil
 		case <-timer.C:
 			// Finish on the resting backdrop before erasing the animation area.
 			if w, h, err := getSize(); err == nil && w == columns && h == rows {

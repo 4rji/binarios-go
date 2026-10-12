@@ -30,7 +30,7 @@ func TestPlaySkipsUnavailableSpace(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var out bytes.Buffer
 			getSize := func() (int, int, error) { return tt.columns, tt.rows, tt.err }
-			if sig := play(&out, getSize, nil, nil, darkness); sig != nil || out.Len() != 0 {
+			if sig := play(&out, getSize, nil, darkness); sig != nil || out.Len() != 0 {
 				t.Fatalf("skipped splash emitted output or signal: %q, %v", out.String(), sig)
 			}
 		})
@@ -114,7 +114,7 @@ func TestPlayRestoresTerminal(t *testing.T) {
 			started := time.Now()
 			func() {
 				defer func() { panicked = recover() }()
-				got = play(out, getSize, interrupts, nil, darkness)
+				got = play(out, getSize, interrupts, darkness)
 			}()
 			if got != tt.interrupt {
 				t.Errorf("signal = %v, want %v", got, tt.interrupt)
@@ -173,25 +173,6 @@ func assertNoScrolling(t *testing.T, output string) {
 			t.Errorf("output contains scrolling or whole-screen erase sequence %q", forbidden)
 		}
 	}
-}
-
-func TestPlaySkippedByKeypress(t *testing.T) {
-	out := &recordingWriter{}
-	getSize := func() (int, int, error) { return 80, 40, nil }
-	keys := make(chan struct{}, 1)
-	keys <- struct{}{}
-	started := time.Now()
-	if sig := play(out, getSize, nil, keys, darkness); sig != nil {
-		t.Fatalf("signal = %v, want nil", sig)
-	}
-	if elapsed := time.Since(started); elapsed >= duration {
-		t.Errorf("keypress did not skip early: took %v, duration is %v", elapsed, duration)
-	}
-	output := out.String()
-	if !strings.HasSuffix(output, leaveScreen) {
-		t.Fatal("normal screen and cursor were not restored")
-	}
-	assertNoScrolling(t, output)
 }
 
 func TestFrameBoundsAndMovingHighlight(t *testing.T) {

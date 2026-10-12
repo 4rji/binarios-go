@@ -1,0 +1,65 @@
+# Digi Field Walkthrough — Timeline y diálogos
+
+Tiempos estimados según la duración programada de cada escena (total aprox. 2:47). La duración real puede variar unos segundos según la voz del navegador, porque cada escena espera a que termine la narración.
+
+Sin texto en pantalla: el video solo muestra las capturas, los resaltados y los efectos. Los diálogos son audio (voz del navegador, inglés).
+
+| # | Inicio | Duración | Pantalla | Qué se ve | Diálogo (audio) |
+| --- | --- | --- | --- | --- | --- |
+| Intro | 0:00 | 4.8 s | Logo animado | Animación del logo de Digi Field (tarjeta, texto, tres pines que caen y el mapa). Sin voz; solo efectos de sonido suaves. | — (sin voz, solo efectos de sonido) |
+| 1 | 0:05 | 16.1 s | Embedded Systems (mapa) | Mapa de Embedded Systems completo, sin zoom. Se resaltan uno a uno los círculos de dispositivos. | Welcome to Digi Field. From this app you can monitor your connected equipment in the field: Digi's embedded systems, its routers, and smart devices such as meters, sensors, and remote assets. All from one place. |
+| 2 | 0:21 | 11.7 s | Embedded Systems (mapa) | Zoom suave a la barra superior. Se resaltan DRM, Digi Axess y Endpoints; termina con un toque en DRM. | At the top you'll find the management bar. From here you can reach Digi Remote Manager and Digi Axess, and see your connected endpoints. |
+| 3 | 0:33 | 6.9 s | Ventana Remote Manager | Ventana de Digi Remote Manager. Se resalta el API key y el botón Refresh inventory. | Here you can connect your devices using your Remote Manager API key. |
+| 4 | 0:40 | 11.7 s | Embedded Systems (mapa), Manage RM | Resalta el botón Manage RM en la barra y abre la pantalla de dispositivos. Se resaltan las tarjetas de resumen y baja a la lista. | With the Manage RM button, you can see all the devices assigned to your API key, and check their device health at a glance. |
+| 5 | 0:51 | 8.1 s | Embedded Systems (mapa), Ventana Digi Axess | Resalta el botón Digi Axess y abre su ventana de conexión. Se resalta Refresh device list (correo difuminado). | With Digi Axess, you can add devices by simply logging in with your account information. |
+| 6 | 0:59 | 9.3 s | Embedded Systems (mapa), Manage AX | Resalta el botón Manage AX y abre la pantalla de dispositivos Axess: encabezado, tarjetas de resumen y lista. | With the Manage AX button, you can see the health of your Digi Axess devices at a glance. |
+| 7 | 1:09 | 12.1 s | Routers and Endpoints | Pestaña Routers and Endpoints: se resalta la pestaña, se ve el mapa y se resaltan los dispositivos. | Besides Embedded Systems, Digi Field has other main screens. In Routers and Endpoints, you can monitor multiple installations and locate your devices on the map. |
+| 8 | 1:21 | 12.5 s | Infrastructure Management | Pestaña Infrastructure Management: se resalta la pestaña, se ve el mapa y terminan resaltados los círculos de Remote Manager y Digi Axess. | And in Infrastructure Management, you can also see your installations and locate the devices you want to monitor, all connected to Remote Manager and Digi Axess. |
+| 9 | 1:33 | 10.1 s | Embedded Systems (mapa), Panel Digi Remote Manager | Vuelta al mapa de Embedded Systems; toque en el círculo de Digi Remote Manager y se abre el panel lateral hasta el botón Choose devices. | Back on the main screen, tap Digi Remote Manager to customize which devices you want to see on the screen. |
+| 10 | 1:43 | 10.9 s | Panel Digi Remote Manager, Choose devices | Toque en Choose devices: lista del inventario con selección de dispositivos para el diagrama. | Tap Choose devices to see your full inventory and select the ones you need to visualize for that installation or plant design. |
+| 11 | 1:54 | 10.9 s | Dispositivo en rojo (CC8MM) | Pantalla Routers and Endpoints: el CC8MM aparece en rojo y también figura como Offline en el recuadro superior derecho. | If a device is disconnected or has a problem, like the CC8MM, the app shows it in red, alerting engineers in time. |
+| 12 | 2:05 | 7.7 s | Dispositivo en rojo (CC8MM), Detalle CC8MM | Toque en el dispositivo: ventana de detalles (estado, métricas en vivo, información técnica). | Tap a device to see its statistics, its current status, and its technical information. |
+| 13 | 2:13 | 19.3 s | Embedded Systems (mapa), Estadísticas 6350-SR, Datos técnicos 6350-SR | Toque en AcceleratedConcepts 6350-SR: tarjetas de estado, métricas en vivo y campos técnicos (serial, IP) con desplazamiento suave. | We can also see real statistics for any device we've added: its current traffic, its health status, and its metrics. And we can see data like the serial number or IP addresses, which helps identify devices, all from the palm of your hand. |
+| 14 | 2:32 | 6.1 s | Infrastructure Management | Mapa de Infrastructure Management; se aleja suavemente y termina en blanco. | Everything you need to monitor your installations, in one place. |
+| Cierre (logo) | 2:38 | 8.4 s | Logo animado | Animación del logo otra vez; la voz dice el cierre y la pantalla se apaga en blanco. | This is Digi Field App. |
+
+## Diálogo completo, en orden
+
+**0:06**  Welcome to Digi Field. From this app you can monitor your connected equipment in the field: Digi's embedded systems, its routers, and smart devices such as meters, sensors, and remote assets. All from one place.
+
+**0:22**  At the top you'll find the management bar. From here you can reach Digi Remote Manager and Digi Axess, and see your connected endpoints.
+
+**0:33**  Here you can connect your devices using your Remote Manager API key.
+
+**0:40**  With the Manage RM button, you can see all the devices assigned to your API key, and check their device health at a glance.
+
+**0:52**  With Digi Axess, you can add devices by simply logging in with your account information.
+
+**1:00**  With the Manage AX button, you can see the health of your Digi Axess devices at a glance.
+
+**1:09**  Besides Embedded Systems, Digi Field has other main screens. In Routers and Endpoints, you can monitor multiple installations and locate your devices on the map.
+
+**1:21**  And in Infrastructure Management, you can also see your installations and locate the devices you want to monitor, all connected to Remote Manager and Digi Axess.
+
+**1:34**  Back on the main screen, tap Digi Remote Manager to customize which devices you want to see on the screen.
+
+**1:44**  Tap Choose devices to see your full inventory and select the ones you need to visualize for that installation or plant design.
+
+**1:55**  If a device is disconnected or has a problem, like the CC8MM, the app shows it in red, alerting engineers in time.
+
+**2:06**  Tap a device to see its statistics, its current status, and its technical information.
+
+**2:14**  We can also see real statistics for any device we've added: its current traffic, its health status, and its metrics. And we can see data like the serial number or IP addresses, which helps identify devices, all from the palm of your hand.
+
+**2:33**  Everything you need to monitor your installations, in one place.
+
+**2:42**  This is Digi Field App.
+
+
+## Cómo usar el paquete
+
+- Abre `index.html` en Chrome, Edge o Safari y pulsa el botón de reproducir. La voz y los efectos suenan solo después de pulsar.
+- Las capturas están en la carpeta `img/`. Para cambiar una, reemplaza el archivo con el mismo nombre.
+- Los tiempos y los textos de la narración están al inicio del script de `index.html` (lista `S`).
+- Las fuentes se cargan desde Google Fonts; sin internet se usan fuentes del sistema y todo lo demás funciona igual.
+
