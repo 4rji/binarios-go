@@ -132,6 +132,9 @@ func keypresses() (<-chan struct{}, func()) {
 			default:
 			}
 			n, err := syscall.Read(ttyFd, buf)
+			if n > 0 || err != nil {
+				fmt.Fprintln(os.Stderr, "DEBUG: read n=", n, "byte=", buf[0], "err=", err)
+			}
 			if n > 0 {
 				select {
 				case keys <- struct{}{}:
