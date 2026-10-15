@@ -32,6 +32,8 @@ The icon changes while selecting or recognizing text. History keeps the latest 4
 
 Press **Command + Shift + 2**, drag around the text, and wait until the menu says **Copied … characters**. Paste with **Command + V**. **Escape** cancels selection. Keep MacOCR running to capture again.
 
+Press **Option + Shift + 2** to type the clipboard text into the active app using simulated keystrokes. Text over **450 characters** asks for confirmation; after you confirm, MacOCR returns to the previous app and waits **one second** before typing.
+
 The first OCR can take noticeably longer while macOS prepares its local Vision/Neural Engine models. Leave it running until it finishes; later captures should be faster. While processing, new captures are disabled. An hourglass means recognition is still in progress; the menu shows the current status or error.
 
 ## Terminal version

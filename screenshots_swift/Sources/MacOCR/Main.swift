@@ -185,10 +185,12 @@ private final class OCRService {
             log("Clipboard is empty or does not contain text.")
             return
         }
-        if text.count > KeyboardTyper.confirmationThreshold {
+        let needsConfirmation = text.count > KeyboardTyper.confirmationThreshold
+        if needsConfirmation {
+            let previousApp = NSWorkspace.shared.frontmostApplication
             let alert = NSAlert()
             alert.messageText = "Type \(text.count) characters?"
-            alert.informativeText = "This simulates keyboard input into the active app, one keystroke at a time, which takes a few seconds for long text."
+            alert.informativeText = "This simulates keyboard input into the active app, one keystroke at a time, which takes a few seconds for long text. After you confirm, typing starts in the previous app after a one-second delay."
             alert.addButton(withTitle: "Type")
             alert.addButton(withTitle: "Cancel")
             NSApplication.shared.activate(ignoringOtherApps: true)
@@ -196,6 +198,7 @@ private final class OCRService {
                 log("Typing canceled; clipboard unchanged.")
                 return
             }
+            previousApp?.activate(options: [])
         }
         busy = true
         status = .typing
@@ -208,6 +211,10 @@ private final class OCRService {
                 if !shuttingDown { log("Ready (Command + Shift + 2 to capture, Option + Shift + 2 to type).") }
             }
             do {
+                if needsConfirmation {
+                    try await Task.sleep(for: .seconds(1))
+                }
+                guard !shuttingDown else { return }
                 try await KeyboardTyper().type(text)
                 guard !shuttingDown else { return }
                 status = .ready

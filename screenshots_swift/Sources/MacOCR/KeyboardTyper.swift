@@ -7,7 +7,7 @@ import Foundation
 struct KeyboardTyper: Sendable {
     /// Confirmation threshold: longer text takes visibly long to "type" and
     /// could look like the app is stuck, so the caller should confirm first.
-    static let confirmationThreshold = 200
+    static let confirmationThreshold = 450
 
     /// Delay between keystrokes so apps that poll their event queue (Electron,
     /// VM consoles, remote-desktop clients) don't drop characters typed too fast.
