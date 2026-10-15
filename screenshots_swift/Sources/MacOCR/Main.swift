@@ -43,6 +43,7 @@ private final class OCRService {
     private let showsMenuBar: Bool
     private var menuBar: MenuBarController?
     private var history = OCRHistory()
+    private var clipboardMonitor: ClipboardMonitor?
     private var mode: OCRMode
     private var status: OCRStatus = .ready
     private var statusMessage: String?
@@ -89,8 +90,20 @@ private final class OCRService {
                         self.history.clear()
                         self.statusMessage = "History cleared."
                         self.refreshMenu()
+                    },
+                    onTogglePause: { [weak self] in
+                        guard let self, let monitor = self.clipboardMonitor else { return }
+                        monitor.setPaused(!monitor.isPaused)
+                        self.statusMessage = monitor.isPaused ? "Clipboard capture paused." : "Clipboard capture on."
+                        self.refreshMenu()
                     }
                 )
+                let monitor = ClipboardMonitor { [weak self] text in
+                    guard let self, self.history.add(text, source: .clipboard) else { return }
+                    self.refreshMenu()
+                }
+                monitor.start()
+                clipboardMonitor = monitor
                 refreshMenu()
             }
             log("Ready (\(configuration.mode.rawValue) mode). Press Command + Shift + 2 to capture, Option + Shift + 2 to type the clipboard; Control-C to stop.")
@@ -111,6 +124,9 @@ private final class OCRService {
         Task {
             defer {
                 capture.cleanup()
+                // Control-drag can leave an image on the clipboard that the guard
+                // restores; treat the post-capture clipboard as already seen.
+                clipboardMonitor?.syncBaseline()
                 busy = false
                 refreshMenu()
                 if !configuration.once && !shuttingDown {
@@ -138,7 +154,8 @@ private final class OCRService {
                 }
                 guard !shuttingDown else { return }
                 try ClipboardManager().copy(text)
-                let savedToHistory = showsMenuBar && history.add(text, mode: mode)
+                clipboardMonitor?.syncBaseline()
+                let savedToHistory = showsMenuBar && history.add(text, source: .ocr(mode))
                 status = .ready
                 statusMessage = "Copied \(text.count) characters." + (showsMenuBar && !savedToHistory ? " Too large for history." : "")
                 log("Copied \(text.count) characters to the clipboard.")
@@ -209,6 +226,7 @@ private final class OCRService {
         shuttingDown = true
         captureHotkey?.unregister()
         typeHotkey?.unregister()
+        clipboardMonitor?.stop()
         menuBar?.remove()
         history.clear()
         capture.stop()
@@ -221,13 +239,15 @@ private final class OCRService {
     }
 
     private func refreshMenu() {
-        menuBar?.update(status: status, busy: busy, mode: mode, history: history.entries, message: statusMessage)
+        menuBar?.update(status: status, busy: busy, mode: mode, history: history.entries,
+                        clipboardPaused: clipboardMonitor?.isPaused ?? false, message: statusMessage)
     }
 
     private func copyHistory(_ id: UUID) {
         guard !busy, let entry = history.entry(id: id) else { return }
         do {
             try ClipboardManager().copy(entry.text)
+            clipboardMonitor?.syncBaseline()
             status = .ready
             statusMessage = "Copied \(entry.text.count) characters from history."
             log("Copied \(entry.text.count) characters from history.")

@@ -33,16 +33,18 @@ final class MenuBarController: NSObject {
     private let onMode: (OCRMode) -> Void
     private let onCopy: (UUID) -> Void
     private let onClear: () -> Void
+    private let onTogglePause: () -> Void
     private let timeFormatter: DateFormatter
 
     init(onCapture: @escaping () -> Void, onQuit: @escaping () -> Void,
          onMode: @escaping (OCRMode) -> Void, onCopy: @escaping (UUID) -> Void,
-         onClear: @escaping () -> Void) {
+         onClear: @escaping () -> Void, onTogglePause: @escaping () -> Void) {
         self.onCapture = onCapture
         self.onQuit = onQuit
         self.onMode = onMode
         self.onCopy = onCopy
         self.onClear = onClear
+        self.onTogglePause = onTogglePause
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         timeFormatter = DateFormatter()
         timeFormatter.dateFormat = "HH:mm"
@@ -54,7 +56,7 @@ final class MenuBarController: NSObject {
     }
 
     func update(status: OCRStatus, busy: Bool, mode: OCRMode,
-                history: [OCRHistoryEntry], message: String?) {
+                history: [OCRHistoryEntry], clipboardPaused: Bool, message: String?) {
         let image = NSImage(systemSymbolName: status.symbol, accessibilityDescription: status.title)
         image?.isTemplate = true
         statusItem.button?.image = image
@@ -81,7 +83,7 @@ final class MenuBarController: NSObject {
             let title = "\(timeFormatter.string(from: entry.capturedAt)) · \(entry.preview)"
             let row = item(title, action: #selector(copyHistory(_:)))
             row.representedObject = entry.id.uuidString
-            row.toolTip = "Click to copy full text (\(entry.mode.rawValue) mode)\n" + String(entry.text.prefix(1_000))
+            row.toolTip = "Click to copy full text (\(entry.source.label))\n" + String(entry.text.prefix(1_000))
             row.isEnabled = !busy
             historyMenu.addItem(row)
         }
@@ -91,6 +93,13 @@ final class MenuBarController: NSObject {
         historyMenu.addItem(clear)
         historyItem.submenu = historyMenu
         menu.addItem(historyItem)
+
+        let pause = item(clipboardPaused ? "Resume Clipboard Capture" : "Pause Clipboard Capture",
+                         action: #selector(toggleClipboardPause))
+        pause.toolTip = "When on, text you copy in any app is added to History. Concealed items (passwords) are skipped."
+        pause.state = clipboardPaused ? .off : .on
+        pause.isEnabled = !busy
+        menu.addItem(pause)
 
         menu.addItem(.separator())
         for value in [OCRMode.normal, .code] {
@@ -126,6 +135,7 @@ final class MenuBarController: NSObject {
     }
     @objc private func quitApp() { onQuit() }
     @objc private func clearHistory() { onClear() }
+    @objc private func toggleClipboardPause() { onTogglePause() }
     @objc private func copyHistory(_ sender: NSMenuItem) {
         guard let value = sender.representedObject as? String, let id = UUID(uuidString: value) else { return }
         onCopy(id)

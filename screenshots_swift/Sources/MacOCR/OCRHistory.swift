@@ -1,9 +1,24 @@
 import Foundation
 
+/// Where a history entry came from: a screen OCR capture (keeping its
+/// formatting mode) or plain text the user copied to the clipboard.
+enum HistorySource: Sendable, Equatable {
+    case ocr(OCRMode)
+    case clipboard
+
+    /// Short human label used in the menu tooltip.
+    var label: String {
+        switch self {
+        case .ocr(let mode): return "\(mode.rawValue) OCR"
+        case .clipboard: return "copied"
+        }
+    }
+}
+
 struct OCRHistoryEntry: Identifiable, Sendable {
     let id: UUID
     let text: String
-    let mode: OCRMode
+    let source: HistorySource
     let capturedAt: Date
 
     var preview: String {
@@ -13,23 +28,26 @@ struct OCRHistoryEntry: Identifiable, Sendable {
     }
 }
 
-/// Session-only history: bounded memory, no text written to disk.
+/// Session-only history of OCR captures and clipboard copies: bounded
+/// memory, no text written to disk.
 struct OCRHistory {
     private(set) var entries: [OCRHistoryEntry] = []
     let capacity: Int
     let byteLimit: Int
 
-    init(capacity: Int = 20, byteLimit: Int = 1_048_576) {
+    init(capacity: Int = 40, byteLimit: Int = 1_048_576) {
         self.capacity = max(0, capacity)
         self.byteLimit = max(0, byteLimit)
     }
 
     @discardableResult
-    mutating func add(_ text: String, mode: OCRMode, at date: Date = Date()) -> Bool {
+    mutating func add(_ text: String, source: HistorySource, at date: Date = Date()) -> Bool {
         guard capacity > 0, text.utf8.count <= byteLimit,
               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
-        entries.removeAll { $0.text == text && $0.mode == mode }
-        entries.insert(OCRHistoryEntry(id: UUID(), text: text, mode: mode, capturedAt: date), at: 0)
+        // Identical text collapses to a single, most-recent entry regardless of
+        // source, so re-copying an earlier item just moves it back to the top.
+        entries.removeAll { $0.text == text }
+        entries.insert(OCRHistoryEntry(id: UUID(), text: text, source: source, capturedAt: date), at: 0)
         while entries.count > capacity || entries.reduce(0, { $0 + $1.text.utf8.count }) > byteLimit {
             entries.removeLast()
         }

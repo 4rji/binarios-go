@@ -22,12 +22,13 @@ To launch it again, double-click **`dist/MacOCR.app`** or run `open dist/MacOCR.
 Its OCR icon appears in the menu bar near the clock, with no window or Dock icon. Left-click or right-click it to open the menu:
 
 - **Capture Text:** select a region, or press **Command + Shift + 2**.
-- **History:** click a previous capture to copy its full text again.
+- **History:** click a previous entry to copy its full text again. History holds both OCR captures and text you copy yourself in any app (**Command + C**), so you can re-paste earlier copies.
+- **Pause Clipboard Capture:** stop recording what you copy (for example while handling sensitive text); select again to resume.
 - **Normal Formatting:** readable paragraphs with unnecessary spaces removed.
 - **Code Formatting:** approximate indentation and aligned columns for code, terminals, and tables.
 - **Quit MacOCR:** stop the app and release the shortcut.
 
-The icon changes while selecting or recognizing text. History keeps the latest 20 distinct captures in memory (up to 1 MiB total); quitting clears it. No recognized text is saved to disk. History previews are shortened, but copying preserves the complete text.
+The icon changes while selecting or recognizing text. History keeps the latest 40 distinct entries in memory (up to 1 MiB total), combining OCR captures and clipboard copies; quitting clears it. Nothing is saved to disk. Items that apps mark as concealed (passwords from a password manager) or transient are never recorded. History previews are shortened, but copying preserves the complete text.
 
 Press **Command + Shift + 2**, drag around the text, and wait until the menu says **Copied … characters**. Paste with **Command + V**. **Escape** cancels selection. Keep MacOCR running to capture again.
 
