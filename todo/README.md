@@ -23,6 +23,9 @@ An interactive terminal UI to discover, preview and run the scripts in
   while remaining interactive. These effects run on interactive terminals of
   at least 66 columns by 32 rows; redirected output and `TERM=dumb` skip them.
   Resizing stops the splash, and interrupting restores the terminal before exit.
+  During the splash, the first 500 ms ignore keyboard input from the launch
+  shortcut (for example Ctrl+T). After that, any key speeds up the remaining
+  splash and menu fade by 8×; typed input is kept for the search.
 
 The reusable code, tests and Spanish LLM integration instructions are available
 in [estrella_muerte_animacion_go](estrella_muerte_animacion_go/README.md).

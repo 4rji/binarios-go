@@ -86,6 +86,8 @@ type Model struct {
 	warningExp time.Time         // when warning expires
 	menuFade   splash.Fade
 	backdrop   splash.Backdrop
+	startup    splash.Startup
+	queuedKeys []tea.KeyMsg
 }
 
 func initialModel() Model {
@@ -107,6 +109,7 @@ func initialModel() Model {
 		styles:   newStyles(),
 		menuFade: splash.NewFade(),
 		backdrop: splash.NewBackdrop(),
+		startup:  splash.NewStartup(),
 	}
 }
 
@@ -168,6 +171,13 @@ func loadImageCmd(scriptName string) tea.Cmd {
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case splash.StartupTick:
+		cmd := m.startup.Update(msg)
+		if !m.startup.Active() {
+			return m.finishStartup()
+		}
+		return m, cmd
+
 	case splash.FadeTick:
 		cmd := m.menuFade.Update(msg)
 		return m, cmd
@@ -175,7 +185,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		return m, nil
+		wasActive := m.startup.Active()
+		cmd := m.startup.Start(msg.Width, msg.Height, time.Now())
+		if wasActive && !m.startup.Active() {
+			return m.finishStartup()
+		}
+		return m, cmd
 
 	case spinner.TickMsg:
 		if m.mode == modeLoading {
@@ -194,8 +209,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.filtered = msg.scripts
 		}
 		m.mode = modeBrowse
-		cmd := m.menuFade.Start()
-		return m, cmd
+		return m.finishStartup()
 
 	case contentSearchMsg:
 		if msg.err == nil {
@@ -232,6 +246,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		if msg.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
+		if m.startup.Active() {
+			if m.startup.AcceptKey(time.Now()) {
+				m.queuedKeys = append(m.queuedKeys, msg)
+				m.menuFade.Accelerate()
+			}
+			return m, nil
+		}
+		m.menuFade.Accelerate()
+		if m.mode == modeLoading {
+			m.queuedKeys = append(m.queuedKeys, msg)
+			return m, nil
+		}
 		return m.handleKey(msg)
 	}
 
@@ -243,6 +272,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+func (m Model) finishStartup() (tea.Model, tea.Cmd) {
+	if m.startup.Active() || m.mode == modeLoading {
+		return m, nil
+	}
+	cmds := []tea.Cmd{m.menuFade.Start()}
+	keys := m.queuedKeys
+	m.queuedKeys = nil
+	for _, key := range keys {
+		updated, cmd := m.handleKey(key)
+		m = updated.(Model)
+		cmds = append(cmds, cmd)
+	}
+	return m, tea.Batch(cmds...)
 }
 
 func (m *Model) refilter() {
@@ -846,6 +890,9 @@ func (m Model) viewDetail() string {
 }
 
 func (m Model) View() string {
+	if m.startup.Active() {
+		return m.startup.View()
+	}
 	view := m.menuFade.View(m.view())
 	// The detail view stays clean so image previews are not drawn over.
 	if m.mode == modeDetail {

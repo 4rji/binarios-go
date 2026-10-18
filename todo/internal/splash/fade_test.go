@@ -63,3 +63,25 @@ func TestFadeWaitsForDataAndStopsAtFullBrightness(t *testing.T) {
 		t.Error("completed transition kept animating or changed the final view")
 	}
 }
+
+func TestAcceleratedFadeFinishesSoonAndPreservesProgress(t *testing.T) {
+	f := Fade{enabled: true}
+	f.Accelerate()
+	f.Start()
+	if f.Update(FadeTick(f.started.Add(menuDuration/fastSpeed))) != nil || f.View("menu") != "menu" {
+		t.Fatal("menu did not finish its accelerated fade")
+	}
+	f = Fade{enabled: true, started: time.Now().Add(-menuDuration / 2)}
+	f.Update(FadeTick(time.Now()))
+	before := f.progress
+	f.Accelerate()
+	f.Update(FadeTick(time.Now()))
+	if f.progress < before || f.progress-before > 0.05 {
+		t.Fatalf("acceleration jumped progress from %v to %v", before, f.progress)
+	}
+	started := f.started
+	f.Accelerate()
+	if f.started != started {
+		t.Fatal("repeated keys restarted the fade")
+	}
+}
