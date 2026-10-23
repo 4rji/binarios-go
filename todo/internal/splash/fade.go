@@ -22,6 +22,7 @@ type Fade struct {
 	base     rgb // The terminal's background, where the transition starts.
 	started  time.Time
 	progress float64
+	fast     bool
 }
 
 // NewFade enables the menu transition only where the startup splash can run.
@@ -47,12 +48,28 @@ func (f *Fade) Update(tick FadeTick) tea.Cmd {
 	if !f.enabled || f.started.IsZero() {
 		return nil
 	}
-	f.progress = smoothstep(time.Time(tick).Sub(f.started).Seconds() / menuDuration.Seconds())
+	elapsed := time.Time(tick).Sub(f.started)
+	if f.fast {
+		elapsed *= fastSpeed
+	}
+	f.progress = smoothstep(elapsed.Seconds() / menuDuration.Seconds())
 	if f.progress >= 1 {
 		f.enabled = false
 		return nil
 	}
 	return fadeTick()
+}
+
+// Accelerate also applies if the menu has not started loading yet.
+func (f *Fade) Accelerate() {
+	if f.fast {
+		return
+	}
+	now := time.Now()
+	if !f.started.IsZero() {
+		f.started = now.Add(-now.Sub(f.started) / fastSpeed)
+	}
+	f.fast = true
 }
 
 // View keeps the loading view invisible until Start, then fades in the ready menu.

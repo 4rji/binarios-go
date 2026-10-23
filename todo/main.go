@@ -6,13 +6,10 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/4rji/binarios-go/todo/internal/splash"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 func main() {
-	splash.Play()
-
 	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
 
 	finalModel, err := p.Run()

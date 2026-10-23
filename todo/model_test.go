@@ -51,3 +51,22 @@ func TestVStartsSearchFromBrowseMode(t *testing.T) {
 		t.Fatalf("input value = %q, want %q", got.input.Value(), "v")
 	}
 }
+
+func TestStartupTypingSurvivesDataLoading(t *testing.T) {
+	m := initialModel()
+	for _, r := range "vpn" {
+		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = updated.(Model)
+	}
+	if len(m.queuedKeys) != 3 {
+		t.Fatalf("queued %d keys, want 3", len(m.queuedKeys))
+	}
+	updated, _ := m.Update(loadedMsg{scripts: []Script{{Name: "vpn"}, {Name: "other"}}})
+	m = updated.(Model)
+	if m.mode != modeSearch || m.input.Value() != "vpn" || m.query != "vpn" {
+		t.Fatalf("typing lost after loading: mode=%v input=%q query=%q", m.mode, m.input.Value(), m.query)
+	}
+	if len(m.queuedKeys) != 0 || len(m.filtered) != 1 || m.filtered[0].Name != "vpn" {
+		t.Fatal("queued keys were not consumed once in order")
+	}
+}
