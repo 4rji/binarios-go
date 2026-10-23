@@ -2,7 +2,8 @@
 
 This folder contains the voice generation and playback code extracted from the presentation:
 
-- `main.go`: standalone Go CLI that converts text or text files to MP3 and plays the result.
+- `main.go`: standalone Go CLI (`voces`) that converts text or text files to MP3 and plays the result.
+- `profiles.json`: saved voice profiles embedded into the binary (`//go:embed`).
 - `script`: convenient launcher for the Go CLI.
 - `tts-service.js`: presentation server module that generates and caches MP3 files and extracts `.note-digi` blocks from `index.html`.
 - `tts-player.js`: presentation browser module that reads the current slide notes, handles `.tts-pause` elements, and plays each segment.
@@ -25,7 +26,7 @@ No npm packages or third-party Go dependencies are required by the Go CLI.
 Run the command without arguments to display the colored help menu:
 
 ```bash
-cd audio-tools
+cd voice-tool
 go run .
 ```
 
@@ -35,13 +36,28 @@ Convert text passed directly on the command line:
 go run . "Hello, this is a voice test"
 ```
 
-Control the speaking style with `-instructions`, followed by instructions in quotes. Put this option before the text to read:
+Control the speaking style with `-instructions` (alias `-in`), followed by instructions in quotes. Put this option before the text to read:
 
 ```bash
-./script -instructions "Habla en español, con tono cálido y pausado." "Hola, esta es una prueba de voz."
+voces -in "Habla en español, con tono cálido y pausado." "Hola, esta es una prueba de voz."
 ```
 
 Here, `string` in the help menu means a text value; replace it with your instructions. These instructions replace the default speaking style. The CLI omits them when using `tts-1` or `tts-1-hd`.
+
+## Voice profiles
+
+A profile is a saved preset (model, voice, speed, instructions) stored in `profiles.json` and embedded into the binary. Select one with `-p` (alias `-profile`). A profile with several variants uses the first by default; pick another with `name:N` (1-based):
+
+```bash
+voces -p femeninas "Your text here"      # variant 1
+voces -p femeninas:5 "Your text here"    # sage, "Presentacion ejecutiva"
+voces -p tecnico:2 article.txt           # nova
+voces -p list                            # show all profiles and variants
+```
+
+The profile sets the voice style; the text still comes from the argument, a file, or stdin. Explicit `-voice`, `-speed`, `-model`, or `-in` override the profile. Profile values take precedence over `~/.voices_env` and environment defaults.
+
+To add a profile later, edit `profiles.json` (add an entry with a `variants` array) and rebuild.
 
 Convert a text file. A single argument that matches an existing file is read automatically:
 
@@ -59,8 +75,8 @@ cat article.txt | go run . --file -
 From the repository root, the launcher provides the same behavior:
 
 ```bash
-./audio-tools/script "Hello from the launcher"
-./audio-tools/script notes.txt
+./voice-tool/script "Hello from the launcher"
+./voice-tool/script notes.txt
 ```
 
 The output is written to `voces/` in the directory where the command was launched. The MP3 is played automatically. Repeating the same text and configuration reuses the cached file.
@@ -70,10 +86,11 @@ The output is written to `voces/` in the directory where the command was launche
 ```text
 --file article.txt           read text from a file; use - for stdin
 --no-play                    create the MP3 without playing it
+-p, --profile femeninas      use a saved voice profile; name or name:N, or 'list'
 --voice cedar                change the voice
 --model gpt-4o-mini-tts      change the model
 --speed 0.98                 change the speech speed
---instructions "..."         change the speaking style
+-in, --instructions "..."    change the speaking style
 --output-dir ./other-folder  change the output directory
 ```
 
@@ -100,7 +117,7 @@ OPENAI_TTS_INSTRUCTIONS="Habla en español, con tono natural, claro y conversaci
 You may also set `OPENAI_API_KEY` in this file. Priority is command options, then environment variables (including explicitly empty values), then the file, then built-in defaults. Put options before the text:
 
 ```bash
-./script --voice cedar --speed 1.1 "Hola, esta es una prueba."
+voces --voice cedar --speed 1.1 "Hola, esta es una prueba."
 ```
 
 Changes apply on the next invocation. A missing file is fine. Blank lines, full-line `#` comments, optional `export`, and single or double quotes are supported. Values are literal: shell commands and variable references are never expanded. Only the five settings above are read. Malformed assignments report the file and line without printing their values.
@@ -121,9 +138,9 @@ Before sending the request, the CLI prints the character count and an approximat
 
 Use `--no-play` on a system without an audio player.
 
-## Install as `script`
+## Install as `voces`
 
 ```bash
-go -C audio-tools build -o "$HOME/.local/bin/script" .
-script "Text to turn into speech"
+go build -o "$HOME/.local/bin/voces" .
+voces "Text to turn into speech"
 ```

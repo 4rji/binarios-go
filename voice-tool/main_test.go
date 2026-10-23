@@ -125,6 +125,92 @@ func TestRunVoicesEnvPrecedence(t *testing.T) {
 	}
 }
 
+func TestLoadProfiles(t *testing.T) {
+	profiles, err := loadProfiles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"femeninas", "tecnico"} {
+		prof, ok := profiles[name]
+		if !ok {
+			t.Fatalf("profile %q missing", name)
+		}
+		if len(prof.Variants) == 0 {
+			t.Fatalf("profile %q has no variants", name)
+		}
+	}
+	if got := len(profiles["femeninas"].Variants); got != 10 {
+		t.Fatalf("femeninas variants = %d, want 10", got)
+	}
+}
+
+func TestResolveProfile(t *testing.T) {
+	profiles, err := loadProfiles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Default selects the first variant.
+	v, err := resolveProfile(profiles, "femeninas")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.Voice != "marin" || v.Speed != 0.98 {
+		t.Fatalf("femeninas default = %+v", v)
+	}
+	// name:N is 1-based.
+	v, err = resolveProfile(profiles, "tecnico:2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.Voice != "nova" {
+		t.Fatalf("tecnico:2 voice = %q, want nova", v.Voice)
+	}
+	// Errors: unknown name, out-of-range, non-numeric.
+	for _, bad := range []string{"nope", "tecnico:3", "tecnico:0", "femeninas:x"} {
+		if _, err := resolveProfile(profiles, bad); err == nil {
+			t.Fatalf("resolveProfile(%q) expected error", bad)
+		}
+	}
+}
+
+func TestRunProfileSetsVoiceUsesCache(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	for _, name := range []string{"OPENAI_TTS_MODEL", "OPENAI_TTS_VOICE", "OPENAI_TTS_SPEED", "OPENAI_TTS_INSTRUCTIONS"} {
+		if err := os.Unsetenv(name); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("OPENAI_API_KEY", "")
+
+	profiles, err := loadProfiles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	variant := profiles["femeninas"].Variants[0]
+	output := t.TempDir()
+	request := speechRequest{
+		Model:        variant.Model,
+		Input:        "Test",
+		Voice:        variant.Voice,
+		Instructions: variant.Instructions,
+		Speed:        variant.Speed,
+		Format:       "mp3",
+	}
+	payload, err := json.Marshal(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hash := sha256.Sum256(payload)
+	path := filepath.Join(output, slug(request.Input)+"-"+hex.EncodeToString(hash[:8])+".mp3")
+	if err := os.WriteFile(path, []byte("cached audio"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := run([]string{"--no-play", "--output-dir", output, "-p", "femeninas", "Test"}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestResolveInputReadsExistingFile(t *testing.T) {
 	filePath := filepath.Join(t.TempDir(), "notes.txt")
 	if err := os.WriteFile(filePath, []byte("  Read this file aloud.\n"), 0o644); err != nil {

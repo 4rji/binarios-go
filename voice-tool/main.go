@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/sha256"
+	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -16,11 +17,15 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 	"unicode"
 )
+
+//go:embed profiles.json
+var profilesData []byte
 
 const (
 	defaultModel        = "gpt-4o-mini-tts"
@@ -47,6 +52,63 @@ type config struct {
 	speed        float64
 	outputDir    string
 	play         bool
+}
+
+type profileVariant struct {
+	Label        string  `json:"label"`
+	Model        string  `json:"model"`
+	Voice        string  `json:"voice"`
+	Speed        float64 `json:"speed"`
+	Instructions string  `json:"instructions"`
+}
+
+type profile struct {
+	Description string           `json:"description"`
+	Variants    []profileVariant `json:"variants"`
+}
+
+// loadProfiles parses the embedded profiles.json.
+func loadProfiles() (map[string]profile, error) {
+	var profiles map[string]profile
+	if err := json.Unmarshal(profilesData, &profiles); err != nil {
+		return nil, fmt.Errorf("parse embedded profiles.json: %w", err)
+	}
+	return profiles, nil
+}
+
+func profileNames(profiles map[string]profile) []string {
+	names := make([]string, 0, len(profiles))
+	for name := range profiles {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// resolveProfile parses "name" or "name:N" and returns the selected variant.
+// N is 1-based; when omitted the first variant is used.
+func resolveProfile(profiles map[string]profile, selector string) (profileVariant, error) {
+	name, number, hasNumber := strings.Cut(selector, ":")
+	name = strings.TrimSpace(name)
+	prof, ok := profiles[name]
+	if !ok {
+		return profileVariant{}, fmt.Errorf("unknown profile %q (available: %s)", name, strings.Join(profileNames(profiles), ", "))
+	}
+	if len(prof.Variants) == 0 {
+		return profileVariant{}, fmt.Errorf("profile %q has no variants", name)
+	}
+	index := 0
+	if hasNumber {
+		n, err := strconv.Atoi(strings.TrimSpace(number))
+		if err != nil {
+			return profileVariant{}, fmt.Errorf("profile variant must be a number: %q", number)
+		}
+		if n < 1 || n > len(prof.Variants) {
+			return profileVariant{}, fmt.Errorf("profile %q has variants 1-%d, got %d", name, len(prof.Variants), n)
+		}
+		index = n - 1
+	}
+	return prof.Variants[index], nil
 }
 
 type speechRequest struct {
@@ -79,12 +141,17 @@ func run(args []string) error {
 		return fmt.Errorf("get current directory: %w", err)
 	}
 
-	flags := flag.NewFlagSet("script", flag.ContinueOnError)
+	flags := flag.NewFlagSet("voces", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	cfg := config{}
+	instructionsDefault := settings.value("OPENAI_TTS_INSTRUCTIONS", defaultInstructions)
+	var profileSel string
 	flags.StringVar(&cfg.model, "model", settings.value("OPENAI_TTS_MODEL", defaultModel), "TTS model")
 	flags.StringVar(&cfg.voice, "voice", settings.value("OPENAI_TTS_VOICE", defaultVoice), "TTS voice")
-	flags.StringVar(&cfg.instructions, "instructions", settings.value("OPENAI_TTS_INSTRUCTIONS", defaultInstructions), "speaking style instructions")
+	flags.StringVar(&cfg.instructions, "instructions", instructionsDefault, "speaking style instructions")
+	flags.StringVar(&cfg.instructions, "in", instructionsDefault, "alias for -instructions")
+	flags.StringVar(&profileSel, "profile", "", "voice profile; name or name:N (e.g. femeninas, tecnico:2, list)")
+	flags.StringVar(&profileSel, "p", "", "alias for -profile")
 	flags.Float64Var(&cfg.speed, "speed", defaultSpeed, "speech speed")
 	flags.StringVar(&cfg.outputDir, "output-dir", filepath.Join(workingDir, "voces"), "output directory")
 	inputFile := flags.String("file", "", "read text from a file (use - for stdin)")
@@ -103,17 +170,46 @@ func run(args []string) error {
 		return err
 	}
 	cfg.play = !*noPlay
-	speedFlag := false
-	flags.Visit(func(f *flag.Flag) {
-		if f.Name == "speed" {
-			speedFlag = true
-		}
-	})
-	if !speedFlag {
+
+	visited := map[string]bool{}
+	flags.Visit(func(f *flag.Flag) { visited[f.Name] = true })
+	instructionsSet := visited["instructions"] || visited["in"]
+
+	if !visited["speed"] {
 		cfg.speed, err = strconv.ParseFloat(settings.value("OPENAI_TTS_SPEED", "0.98"), 64)
 		if err != nil {
 			return errors.New("OPENAI_TTS_SPEED must be a number")
 		}
+	}
+
+	if profileSel != "" {
+		profiles, err := loadProfiles()
+		if err != nil {
+			return err
+		}
+		if profileSel == "list" || profileSel == "help" {
+			printProfiles(profiles)
+			return nil
+		}
+		variant, err := resolveProfile(profiles, profileSel)
+		if err != nil {
+			return err
+		}
+		// Profile overrides env/.voices_env/defaults, but explicit flags still win.
+		if !visited["model"] && variant.Model != "" {
+			cfg.model = variant.Model
+		}
+		if !visited["voice"] {
+			cfg.voice = variant.Voice
+		}
+		if !visited["speed"] {
+			cfg.speed = variant.Speed
+		}
+		if !instructionsSet {
+			cfg.instructions = variant.Instructions
+		}
+		name, _, _ := strings.Cut(profileSel, ":")
+		fmt.Printf("%sProfile:%s %s · %s · voice %s · speed %g\n", colorCyan, colorReset, name, variant.Label, cfg.voice, cfg.speed)
 	}
 	text, source, err := resolveInput(*inputFile, flags.Args())
 	if err != nil {
@@ -294,22 +390,42 @@ func printUsage(flags *flag.FlagSet) {
 	fmt.Fprintf(out, "\n%sVOICE GENERATOR%s  %sOpenAI text-to-speech CLI%s\n", colorBlue, colorReset, colorDim, colorReset)
 	fmt.Fprintf(out, "%s──────────────────────────────────────────────%s\n\n", colorBlue, colorReset)
 	fmt.Fprintf(out, "%sUSAGE%s\n", colorCyan, colorReset)
-	fmt.Fprintln(out, "  go run . \"Text to turn into speech\"")
-	fmt.Fprintln(out, "  go run . article.txt")
-	fmt.Fprintln(out, "  go run . --file article.txt")
-	fmt.Fprintln(out, "  ./script \"Text to turn into speech\"")
-	fmt.Fprintln(out, "  ./script -instructions \"Habla en español, con tono cálido y pausado.\" \"Hola, esta es una prueba de voz.\"")
+	fmt.Fprintln(out, "  voces \"Text to turn into speech\"")
+	fmt.Fprintln(out, "  voces article.txt")
+	fmt.Fprintln(out, "  voces --file article.txt")
+	fmt.Fprintln(out, "  voces -p femeninas \"Text to turn into speech\"")
+	fmt.Fprintln(out, "  voces -p femeninas:5 \"Text to turn into speech\"")
+	fmt.Fprintln(out, "  voces -p tecnico:2 article.txt")
+	fmt.Fprintln(out, "  voces -p list")
+	fmt.Fprintln(out, "  voces -in \"Habla en español, con tono cálido y pausado.\" \"Hola, esta es una prueba de voz.\"")
 	fmt.Fprintf(out, "\n%sWHAT IT DOES%s\n", colorCyan, colorReset)
 	fmt.Fprintln(out, "  1. Reads text from an argument, file, or stdin.")
 	fmt.Fprintln(out, "  2. Creates an MP3 with OpenAI TTS.")
 	fmt.Fprintln(out, "  3. Saves it in ./voces and plays it.")
 	fmt.Fprintf(out, "\n%sOPTIONS%s\n", colorCyan, colorReset)
 	flags.PrintDefaults()
+	fmt.Fprintf(out, "\n%sPROFILES%s\n", colorCyan, colorReset)
+	fmt.Fprintln(out, "  -p / -profile selects a saved voice preset (model, voice, speed, instructions).")
+	fmt.Fprintln(out, "  Use name or name:N to pick a variant; run 'voces -p list' to see them all.")
+	fmt.Fprintln(out, "  Explicit -voice/-speed/-in override the profile.")
 	fmt.Fprintf(out, "\n%sSETUP%s\n", colorCyan, colorReset)
 	fmt.Fprintln(out, "  export OPENAI_API_KEY=\"sk-...\"")
 	fmt.Fprintln(out, "  Settings are read automatically from ~/.voices_env.")
 	fmt.Fprintln(out, "  Priority: command options > environment > ~/.voices_env > defaults.")
 	fmt.Fprintf(out, "\n%sTIP%s  Use --no-play on servers without audio.\n\n", colorYellow, colorReset)
+}
+
+func printProfiles(profiles map[string]profile) {
+	out := os.Stdout
+	fmt.Fprintf(out, "\n%sVOICE PROFILES%s\n", colorBlue, colorReset)
+	for _, name := range profileNames(profiles) {
+		prof := profiles[name]
+		fmt.Fprintf(out, "\n%s%s%s  %s%s%s\n", colorCyan, name, colorReset, colorDim, prof.Description, colorReset)
+		for i, v := range prof.Variants {
+			fmt.Fprintf(out, "  %s%d%s %s (voice %s, speed %g)\n", colorDim, i+1, colorReset, v.Label, v.Voice, v.Speed)
+		}
+	}
+	fmt.Fprintf(out, "\n%sUSE%s  voces -p <name> \"text\"   or   voces -p <name>:<n> \"text\"\n\n", colorYellow, colorReset)
 }
 
 func printInputSummary(model, source, text string) {
