@@ -2,7 +2,10 @@ module github.com/4rji/binarios-go/autoteclado
 
 go 1.25.0
 
-require github.com/go-vgo/robotgo v1.1.0
+require (
+	github.com/go-vgo/robotgo v1.1.0
+	golang.org/x/term v0.40.0
+)
 
 require (
 	github.com/dblohm7/wingoes v0.0.0-20260526185140-fb298caac7ca // indirect

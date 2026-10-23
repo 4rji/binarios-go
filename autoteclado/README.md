@@ -31,10 +31,13 @@ autoteclado -t notas.txt
 ## Uso
 
 ```sh
-# Modo aleatorio: mueve el ratón, escribe y pausa 20 segundos entre ciclos (Ctrl+C para salir)
+# Por defecto: ventana falsa en la terminal que "teclea" un script de Python
+# (escaneo de red con nmap) en ráfagas de 10 caracteres con pausas de 20 s,
+# moviendo el ratón en cada pausa y repitiendo en bucle. Ctrl+C sale sin
+# guardar nada.
 go run .
 
-# Teclear solo el contenido de un archivo y terminar (no mueve el ratón)
+# Teclear solo el contenido de un archivo con el teclado real y terminar
 go run . -t notas.txt
 ```
 
@@ -42,17 +45,33 @@ Flags:
 
 | flag    | por defecto | descripción                                        |
 |---------|-------------|----------------------------------------------------|
-| `-t`    | —           | archivo a teclear; si se indica, solo teclea y sale |
-| `-min`  | `45`        | retardo mínimo entre teclas (ms)                   |
-| `-max`  | `500`       | retardo máximo entre teclas (ms)                   |
-| `-lead` | `3`         | segundos de margen antes de empezar (para enfocar la ventana) |
+| `-t`    | —           | archivo a teclear con el teclado real; si se indica, solo teclea y sale |
+| `-min`  | `45`        | retardo mínimo entre teclas dentro de cada ráfaga (ms) |
+| `-max`  | `500`       | retardo máximo entre teclas dentro de cada ráfaga (ms) |
+| `-lead` | `3`         | segundos de margen antes de empezar (solo con `-t`, para enfocar la ventana) |
+
+### Modo por defecto (ventana falsa)
+
+Sin flags dibuja una ventana con caracteres de caja dentro de la propia
+terminal y va "tecleando" dentro un script de Python de ejemplo:
+
+- Teclea en **ráfagas de 10 caracteres** y luego hace una **pausa de 20 s**.
+- En cada pausa **mueve el ratón real** a un punto aleatorio (esto sí usa
+  robotgo, así que en macOS necesita permiso de Accesibilidad para el ratón).
+- Al terminar el script **vuelve a empezar** en bucle.
+- En el borde inferior muestra un **contador de segundos** (`[ 42s ]`) que se
+  actualiza cada segundo, incluso durante las pausas.
+- Usa el buffer de pantalla alternativo: al salir con **Ctrl+C** la terminal
+  queda igual que antes, **sin guardar nada** ni dejar rastro en el historial.
+
+El tecleo dentro de la ventana es simulado (texto dibujado en pantalla); no
+envía pulsaciones al teclado real.
+
+### Modo `-t` (teclado real)
 
 Durante los segundos de `-lead` tienes que hacer clic en la ventana donde
-quieres que escriba (editor, terminal, navegador…).
-
-En modo aleatorio, después de mover el ratón y escribir, espera 20 segundos
-sin generar entradas antes de repetir el ciclo, para que puedas usar el equipo.
-Puedes salir con Ctrl+C también durante la pausa.
+quieres que escriba (editor, terminal, navegador…). Luego teclea el contenido
+del archivo con el teclado real y termina.
 
 ## Build
 
