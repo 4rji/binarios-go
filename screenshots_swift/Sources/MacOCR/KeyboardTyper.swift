@@ -13,8 +13,13 @@ struct KeyboardTyper: Sendable {
     /// VM consoles, remote-desktop clients) don't drop characters typed too fast.
     private let interKeyDelay: TimeInterval
 
-    init(interKeyDelay: TimeInterval = 0.004) {
+    /// Tab/Enter drive column/row changes in spreadsheet grids (Excel, Sheets),
+    /// which need more time to commit the active cell than a plain character does.
+    private let tabNewlineDelay: TimeInterval
+
+    init(interKeyDelay: TimeInterval = 0.004, tabNewlineDelay: TimeInterval = 0.03) {
         self.interKeyDelay = interKeyDelay
+        self.tabNewlineDelay = tabNewlineDelay
     }
 
     func type(_ text: String) async throws {
@@ -39,6 +44,15 @@ struct KeyboardTyper: Sendable {
             throw MacOCRError.message("Could not create synthetic keyboard events.")
         }
         for character in text {
+            // Tab and newline are control characters: keyboardSetUnicodeString
+            // posts them as a Unicode glyph that spreadsheets and most text
+            // fields silently ignore, so they must be posted as real key presses
+            // (virtualKey 48 = Tab, 36 = Return) to actually move between cells.
+            if let virtualKey = Self.controlKeyCode(for: character) {
+                try postKeyStroke(source: source, virtualKey: virtualKey)
+                Thread.sleep(forTimeInterval: tabNewlineDelay)
+                continue
+            }
             // keyboardSetUnicodeString overrides the glyph regardless of virtualKey,
             // so one key-down/key-up pair per character is enough, no keycode map needed.
             let units = Array(String(character).utf16)
@@ -48,6 +62,23 @@ struct KeyboardTyper: Sendable {
             keyDown.post(tap: .cgSessionEventTap)
             keyUp.post(tap: .cgSessionEventTap)
             if interKeyDelay > 0 { Thread.sleep(forTimeInterval: interKeyDelay) }
+        }
+    }
+
+    private func postKeyStroke(source: CGEventSource, virtualKey: CGKeyCode) throws {
+        guard let down = CGEvent(keyboardEventSource: source, virtualKey: virtualKey, keyDown: true),
+              let up = CGEvent(keyboardEventSource: source, virtualKey: virtualKey, keyDown: false) else {
+            throw MacOCRError.message("Could not create a synthetic key event.")
+        }
+        down.post(tap: .cgSessionEventTap)
+        up.post(tap: .cgSessionEventTap)
+    }
+
+    private static func controlKeyCode(for character: Character) -> CGKeyCode? {
+        switch character {
+        case "\t": return 48 // kVK_Tab
+        case "\n", "\r": return 36 // kVK_Return
+        default: return nil
         }
     }
 }

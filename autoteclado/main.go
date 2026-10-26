@@ -1,4 +1,4 @@
-// autoteclado simula actividad de tecleo con robotgo (modo -t) o dentro de una
+// autoteclado simula actividad de tecleo con robotgo (modo -f) o dentro de una
 // ventana falsa en la terminal (modo por defecto).
 //
 // Sin flags:   abre una "ventana" falsa dentro de la terminal y "teclea" dentro
@@ -9,13 +9,13 @@
 //	accesibilidad para el tecleo. Ctrl+C sale limpio sin guardar nada: usa el
 //	buffer de pantalla alternativo, así que al salir la terminal queda igual.
 //
-// Con -t FILE: teclea únicamente el contenido de FILE con el teclado real y
+// Con -f FILE: teclea únicamente el contenido de FILE con el teclado real y
 //
 //	termina (sin ratón, sin ventana).
 //
 // Funciona en macOS, Linux (X11) y Windows. En macOS hay que dar permiso a la
 // terminal/app en Ajustes del Sistema → Privacidad y Seguridad → Accesibilidad
-// para que el movimiento del ratón (y el modo -t) funcionen.
+// para que el movimiento del ratón (y el modo -f) funcionen.
 package main
 
 import (
@@ -34,27 +34,36 @@ import (
 )
 
 func main() {
-	file := flag.String("t", "", "archivo a teclear con el teclado real (solo teclea su contenido y termina)")
-	minMs := flag.Int("min", 45, "retardo mínimo entre teclas en ms")
-	maxMs := flag.Int("max", 500, "retardo máximo entre teclas en ms")
-	lead := flag.Int("lead", 3, "segundos de margen antes de empezar (para enfocar la ventana, solo con -t)")
+	file := flag.String("f", "", "`archivo` cuyo contenido se teclea en la ventana enfocada; al terminar, sale")
+	startSeconds := flag.Int("t", 3, "`segundos` de espera antes de empezar; tiempo para enfocar la ventana (con -f)")
+	minMs := flag.Int("min", 45, "pausa mínima entre teclas en `ms`; menor pausa = más velocidad")
+	maxMs := flag.Int("max", 500, "pausa máxima entre teclas en `ms`; debe ser mayor o igual que -min")
+	flag.Usage = printUsage
 	flag.Parse()
 
 	if *minMs < 0 || *maxMs < *minMs {
-		fmt.Fprintln(os.Stderr, "error: -min/-max inválidos (se requiere 0 <= min <= max)")
+		printError("las pausas deben cumplir 0 <= -min <= -max (en milisegundos)")
+		os.Exit(2)
+	}
+	if *startSeconds < 0 {
+		printError("-t debe ser 0 o más segundos de espera antes de empezar")
 		os.Exit(2)
 	}
 
-	// Con -t: teclea el archivo con el teclado real y termina.
+	// Con -f: teclea el archivo con el teclado real y termina.
 	if *file != "" {
 		data, err := os.ReadFile(*file)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: no se pudo leer %q: %v\n", *file, err)
+			printError("no se pudo leer %q: %v", *file, err)
 			os.Exit(1)
 		}
-		countdown(*lead, "Tecleando el archivo")
-		typeText(string(data), *minMs, *maxMs)
-		fmt.Fprintln(os.Stderr, "\nListo.")
+		countdown(*startSeconds, "Tecleando el archivo")
+		keyboard := keyboardWriter{keyTap: robotgo.KeyTap, typeUnicode: robotgo.Type}
+		if err := keyboard.typeText(string(data), *minMs, *maxMs); err != nil {
+			printError("%v", err)
+			os.Exit(1)
+		}
+		fmt.Fprintln(os.Stderr, "\n"+styleFor(os.Stderr).paint(colorGreen, "Listo."))
 		return
 	}
 
@@ -63,33 +72,85 @@ func main() {
 	fakeWindow(*minMs, *maxMs)
 }
 
+func printUsage() {
+	out := flag.CommandLine.Output()
+	style := styleFor(out)
+	fmt.Fprintln(out, style.paint(colorHeading, "AUTOTECLADO"))
+	fmt.Fprintf(out, "\n%s %s\n", style.paint(colorHeading, "Uso:"),
+		style.paint(colorGreen, os.Args[0]+" -f archivo [-t segundos] [-min ms] [-max ms]"))
+	fmt.Fprintln(out, style.paint(colorDim, "Sin -f: abre la ventana falsa y mueve el ratón. Ctrl+C para salir."))
+	fmt.Fprintln(out, "\n"+style.paint(colorHeading, "Opciones:"))
+	flag.VisitAll(func(f *flag.Flag) {
+		name, usage := flag.UnquoteUsage(f)
+		fmt.Fprintf(out, "  %s %s\n      %s", style.paint(colorCyan, "-"+f.Name), name, usage)
+		if f.DefValue != "" {
+			fmt.Fprintf(out, " %s", style.paint(colorDim, "(por defecto: "+f.DefValue+")"))
+		}
+		fmt.Fprintln(out)
+	})
+	fmt.Fprintln(out, "\n"+style.paint(colorHeading, "Velocidad de escritura:"))
+	fmt.Fprintln(out, "  Después de cada tecla espera una pausa aleatoria entre -min y -max.")
+	fmt.Fprintln(out, "  Son milisegundos: "+style.paint(colorCyan, "1000 ms = 1 segundo")+". "+
+		style.paint(colorGreen, "Valores menores = más rápido."))
+	fmt.Fprintln(out, "  Por ejemplo, -min 10 -max 30 espera entre 0,01 y 0,03 segundos por tecla.")
+	fmt.Fprintln(out, "  "+style.paint(colorYellow, "-t es solo la espera inicial en segundos; no cambia la velocidad."))
+	fmt.Fprintln(out, "\n"+style.paint(colorHeading, "Ejemplos")+" (esperan 5 segundos para que enfoques la ventana):")
+	fmt.Fprintf(out, "  %s %s\n", style.paint(colorGreen, "Rápida:"),
+		style.paint(colorGreen, os.Args[0]+" -f notas.txt -t 5 -min 10 -max 30"))
+	fmt.Fprintf(out, "  %s  %s\n", style.paint(colorCyan, "Media:"),
+		style.paint(colorCyan, os.Args[0]+" -f notas.txt -t 5 -min 50 -max 150"))
+	fmt.Fprintf(out, "  %s  %s\n", style.paint(colorYellow, "Lenta:"),
+		style.paint(colorYellow, os.Args[0]+" -f notas.txt -t 5 -min 250 -max 500"))
+}
+
 // countdown avisa por stderr y espera n segundos para que el usuario enfoque
 // la ventana objetivo.
 func countdown(n int, label string) {
+	style := styleFor(os.Stderr)
 	for i := n; i > 0; i-- {
-		fmt.Fprintf(os.Stderr, "\r%s en %d... ", label, i)
+		fmt.Fprintf(os.Stderr, "\r%s ", style.paint(colorYellow, fmt.Sprintf("%s en %d...", label, i)))
 		time.Sleep(time.Second)
 	}
-	fmt.Fprintf(os.Stderr, "\r%s: ¡ya!        \n", label)
+	fmt.Fprintf(os.Stderr, "\r%s        \n", style.paint(colorGreen, label+": ¡ya!"))
 }
 
-// typeText teclea el texto carácter a carácter con retardos aleatorios para
-// imitar a una persona. Los saltos de línea se envían como Enter.
-func typeText(text string, minMs, maxMs int) {
+// keyboardWriter separa el envío de eventos para poder comprobar el tecleo sin
+// escribir en la aplicación que tenga el foco durante las pruebas.
+type keyboardWriter struct {
+	keyTap      func(string, ...interface{}) error
+	typeUnicode func(string, ...int)
+}
+
+// typeText envía ASCII imprimible como pulsaciones reales, incluidos los
+// modificadores que KeyTap añade para mayúsculas y símbolos. En macOS, el envío
+// Unicode usa siempre el código de tecla 0 (A), que algunas consolas web leen
+// en lugar del texto. Se reserva ese envío para caracteres fuera de ASCII.
+func (k keyboardWriter) typeText(text string, minMs, maxMs int) error {
 	for _, r := range text {
+		var err error
 		switch r {
 		case '\n':
-			robotgo.KeyTap("enter")
+			err = k.keyTap("enter")
 		case '\t':
-			robotgo.KeyTap("tab")
+			err = k.keyTap("tab")
 		case '\r':
 			// ignora el retorno de carro (archivos CRLF)
 			continue
+		case ' ':
+			err = k.keyTap("space")
 		default:
-			robotgo.TypeStr(string(r))
+			if r >= '!' && r <= '~' {
+				err = k.keyTap(string(r))
+			} else {
+				k.typeUnicode(string(r))
+			}
+		}
+		if err != nil {
+			return fmt.Errorf("no se pudo teclear %q: %w", r, err)
 		}
 		sleepRand(minMs, maxMs)
 	}
+	return nil
 }
 
 // randomMouseMove mueve el ratón de forma suave a un punto aleatorio de la

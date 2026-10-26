@@ -37,6 +37,7 @@ private final class OCRService {
     private let capture = ScreenCapture()
     private var captureHotkey: HotkeyManager?
     private var typeHotkey: HotkeyManager?
+    private var tableTypeHotkey: HotkeyManager?
     private var signals: [DispatchSourceSignal] = []
     private var busy = false
     private var shuttingDown = false
@@ -75,6 +76,10 @@ private final class OCRService {
                                         id: 2, description: "Option + Shift + 2") { [weak self] in self?.triggerTypeClipboard() }
             try typist.register()
             typeHotkey = typist
+            let tableTypist = HotkeyManager(keyCode: UInt32(kVK_ANSI_1), modifiers: UInt32(optionKey | shiftKey),
+                                             id: 3, description: "Option + Shift + 1") { [weak self] in self?.triggerTypeTable() }
+            try tableTypist.register()
+            tableTypeHotkey = tableTypist
             if showsMenuBar {
                 menuBar = MenuBarController(
                     onCapture: { [weak self] in self?.trigger() },
@@ -106,7 +111,7 @@ private final class OCRService {
                 clipboardMonitor = monitor
                 refreshMenu()
             }
-            log("Ready (\(configuration.mode.rawValue) mode). Press Command + Shift + 2 to capture, Option + Shift + 2 to type the clipboard; Control-C to stop.")
+            log("Ready (\(configuration.mode.rawValue) mode). Press Command + Shift + 2 to capture, Option + Shift + 2 to type the clipboard, Option + Shift + 1 to type a markdown table as TSV; Control-C to stop.")
         }
     }
 
@@ -185,6 +190,27 @@ private final class OCRService {
             log("Clipboard is empty or does not contain text.")
             return
         }
+        typeText(text)
+    }
+
+    private func triggerTypeTable() {
+        guard !shuttingDown else { return }
+        guard !busy else {
+            log("Capture or typing is still in progress; please wait.")
+            return
+        }
+        guard let clipboardText = NSPasteboard.general.string(forType: .string), !clipboardText.isEmpty else {
+            log("Clipboard is empty or does not contain text.")
+            return
+        }
+        guard let text = MarkdownTableConverter.tsv(from: clipboardText) else {
+            log("Clipboard does not contain a markdown table (expected '|' columns and a '---' separator row).")
+            return
+        }
+        typeText(text)
+    }
+
+    private func typeText(_ text: String) {
         let needsConfirmation = text.count > KeyboardTyper.confirmationThreshold
         if needsConfirmation {
             let previousApp = NSWorkspace.shared.frontmostApplication
@@ -208,7 +234,7 @@ private final class OCRService {
             defer {
                 busy = false
                 refreshMenu()
-                if !shuttingDown { log("Ready (Command + Shift + 2 to capture, Option + Shift + 2 to type).") }
+                if !shuttingDown { log("Ready (Command + Shift + 2 to capture, Option + Shift + 2 to type, Option + Shift + 1 for a markdown table).") }
             }
             do {
                 if needsConfirmation {
@@ -233,6 +259,7 @@ private final class OCRService {
         shuttingDown = true
         captureHotkey?.unregister()
         typeHotkey?.unregister()
+        tableTypeHotkey?.unregister()
         clipboardMonitor?.stop()
         menuBar?.remove()
         history.clear()

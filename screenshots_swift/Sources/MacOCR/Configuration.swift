@@ -50,6 +50,11 @@ struct Configuration: Sendable {
     remote-desktop window captures the keyboard but won't accept Paste.
     Clipboard text over \(KeyboardTyper.confirmationThreshold) characters asks for confirmation first.
     After confirmation, the previous app is reactivated and typing waits one second.
+
+    Press Option + Shift + 1 to convert a markdown table on the clipboard
+    (header row, then a |---|---| separator row) into tab-separated values
+    and type it, landing one cell per column in spreadsheet grids like Excel
+    or Google Sheets.
     """
 }
 
