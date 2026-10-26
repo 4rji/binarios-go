@@ -26,6 +26,7 @@ export PATH="$(go env GOPATH)/bin:$PATH"
 ```sh
 autoteclado -h
 autoteclado -f notas.txt
+autoteclado -p
 ```
 
 ## Uso
@@ -39,6 +40,12 @@ go run .
 
 # Teclear solo el contenido de un archivo con el teclado real y terminar
 go run . -f notas.txt -t 5
+
+# macOS: teclear el texto copiado, a velocidad máxima, después de 3 segundos
+go run . -p
+
+# Archivo a velocidad máxima
+go run . -f notas.txt -r
 ```
 
 Flags:
@@ -46,12 +53,15 @@ Flags:
 | flag    | por defecto | descripción                                        |
 |---------|-------------|----------------------------------------------------|
 | `-f`    | —           | archivo (*file*) cuyo contenido se teclea; al terminar, sale |
-| `-t`    | `3`         | tiempo de espera inicial en **segundos**, para enfocar la ventana (solo con `-f`) |
+| `-p`    | desactivado | teclea el texto del portapapeles de macOS, a velocidad máxima por defecto |
+| `-t`    | `3`         | tiempo de espera inicial en **segundos**, para enfocar la ventana (con `-f` o `-p`) |
+| `-r`    | automático con `-p` | velocidad máxima, sin pausas añadidas entre teclas |
+| `-r1`…`-r9` | —       | reduce la velocidad respecto a `-r` en pasos del 10 % |
 | `-min`  | `45`        | pausa mínima entre teclas, en **milisegundos**; menor pausa = más velocidad |
 | `-max`  | `500`       | pausa máxima entre teclas, en **milisegundos**; debe ser mayor o igual que `-min` |
 
 La ayuda (`./autoteclado -h`) usa **cian** para títulos y opciones, y distingue
-los ejemplos rápidos en **verde**, medios en **cian** y lentos en **amarillo**.
+los niveles más rápidos en **verde**, intermedios en **cian** y lentos en **amarillo**.
 La cuenta atrás aparece en amarillo, la confirmación en verde y los errores
 de validación o escritura en rojo. Estos mensajes desactivan los colores al
 redirigir su salida, con `TERM=dumb` o con `NO_COLOR=1`:
@@ -60,7 +70,73 @@ redirigir su salida, con `TERM=dumb` o con `NO_COLOR=1`:
 NO_COLOR=1 ./autoteclado -h
 ```
 
-### Velocidad: rápida, media o lenta
+### Portapapeles de macOS: `-p`
+
+Copia el texto con **Cmd+C**, ejecuta el comando y haz clic en la ventana donde
+quieres escribir durante los **3 segundos** de cuenta atrás:
+
+```sh
+./autoteclado -p
+```
+
+Lee el texto mediante `pbpaste` antes de la cuenta atrás y luego lo teclea con
+pulsaciones reales, a velocidad máxima. Conserva los espacios, tabulaciones y
+saltos de línea del contenido; los saltos de línea se envían como **Enter**.
+Si el portapapeles está vacío o no contiene texto, muestra un error.
+
+```sh
+# Esperar 5 segundos en lugar de 3
+./autoteclado -p -t 5
+
+# Escribir un 10 % más lento que la velocidad máxima
+./autoteclado -p -r1
+
+# Escribir un 20 % más lento
+./autoteclado -p -r2
+
+# Escribir a la mitad de velocidad, después de 5 segundos
+./autoteclado -p -t 5 -r5
+```
+
+Elige una fuente de texto: **`-f archivo` o `-p`**. `-p` está disponible en
+macOS; `-f` también funciona en las demás plataformas admitidas.
+
+### Velocidades predefinidas: `-r`, `-r1`…`-r9`
+
+`-r` escribe tan rápido como permita el envío de teclas, sin pausas añadidas.
+Cada nivel reduce la velocidad en 10 puntos porcentuales respecto a `-r`:
+
+| Opción | Velocidad respecto a `-r` | Reducción | Tiempo aproximado si `-r` tarda 1 s |
+|--------|--------------------------|-----------|-----------------------------------|
+| `-r`   | 100 % | 0 %  | 1 s |
+| `-r1`  | 90 %  | 10 % | 1,11 s |
+| `-r2`  | 80 %  | 20 % | 1,25 s |
+| `-r3`  | 70 %  | 30 % | 1,43 s |
+| `-r4`  | 60 %  | 40 % | 1,67 s |
+| `-r5`  | 50 %  | 50 % | 2 s |
+| `-r6`  | 40 %  | 60 % | 2,5 s |
+| `-r7`  | 30 %  | 70 % | 3,33 s |
+| `-r8`  | 20 %  | 80 % | 5 s |
+| `-r9`  | 10 %  | 90 % | 10 s |
+
+El programa mide cuánto tarda en enviar las teclas y calcula las pausas para
+aproximarse a la proporción elegida. La velocidad real depende del sistema y
+de la aplicación que recibe las teclas. La cuenta atrás de `-t` se suma aparte.
+
+```sh
+# Archivo a velocidad máxima, después de 3 segundos
+./autoteclado -f notas.txt -r
+
+# El mismo archivo al 80 % de velocidad, después de 5 segundos
+./autoteclado -f notas.txt -t 5 -r2
+```
+
+Se elige **un solo nivel**. Los niveles requieren `-f` o `-p` y no se combinan
+con `-min`/`-max`. Con `-p` se aplica `-r` automáticamente, salvo que elijas un
+nivel o pausas manuales. Con `-f`, sin opciones de velocidad, se usan las
+pausas de 45 a 500 ms.
+
+### Ajuste manual: `-min` y `-max`
 
 `-min` y `-max` controlan la velocidad mediante la **pausa después de cada
 tecla**. El programa elige una pausa aleatoria entre esos dos valores:
@@ -72,7 +148,7 @@ a 1 segundo.
 | Rápido | `-min 10 -max 30` | entre 0,01 y 0,03 segundos |
 | Medio | `-min 50 -max 150` | entre 0,05 y 0,15 segundos |
 | Lento | `-min 250 -max 500` | entre 0,25 y 0,5 segundos |
-| Predeterminado | sin `-min` ni `-max` | entre 0,045 y 0,5 segundos |
+| Predeterminado con `-f` | sin opciones de velocidad | entre 0,045 y 0,5 segundos |
 
 Ejemplos con el ejecutable compilado en esta carpeta:
 
@@ -88,6 +164,9 @@ Ejemplos con el ejecutable compilado en esta carpeta:
 
 # Ritmo constante: siempre una pausa de 100 ms (0,1 segundos) por tecla
 ./autoteclado -f notas.txt -t 5 -min 100 -max 100
+
+# Portapapeles con pausas manuales
+./autoteclado -p -min 50 -max 150
 ```
 
 `-t 5` solo da **5 segundos antes de empezar**, para hacer clic en el destino;

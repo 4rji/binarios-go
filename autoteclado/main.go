@@ -1,4 +1,4 @@
-// autoteclado simula actividad de tecleo con robotgo (modo -f) o dentro de una
+// autoteclado simula actividad de tecleo con robotgo (modos -f y -p) o dentro de una
 // ventana falsa en la terminal (modo por defecto).
 //
 // Sin flags:   abre una "ventana" falsa dentro de la terminal y "teclea" dentro
@@ -13,9 +13,12 @@
 //
 //	termina (sin ratón, sin ventana).
 //
+// Con -p: teclea el texto del portapapeles de macOS, a velocidad máxima por
+// defecto, tras 3 segundos. -t cambia la espera y -r/-r1…-r9 la velocidad.
+//
 // Funciona en macOS, Linux (X11) y Windows. En macOS hay que dar permiso a la
 // terminal/app en Ajustes del Sistema → Privacidad y Seguridad → Accesibilidad
-// para que el movimiento del ratón (y el modo -f) funcionen.
+// para que el movimiento del ratón (y los modos -f/-p) funcionen.
 package main
 
 import (
@@ -35,31 +38,53 @@ import (
 
 func main() {
 	file := flag.String("f", "", "`archivo` cuyo contenido se teclea en la ventana enfocada; al terminar, sale")
-	startSeconds := flag.Int("t", 3, "`segundos` de espera antes de empezar; tiempo para enfocar la ventana (con -f)")
+	clipboard := flag.Bool("p", false, "teclea el texto del portapapeles de macOS; velocidad máxima por defecto")
+	startSeconds := flag.Int("t", 3, "`segundos` de espera antes de empezar; tiempo para enfocar la ventana (con -f o -p)")
 	minMs := flag.Int("min", 45, "pausa mínima entre teclas en `ms`; menor pausa = más velocidad")
 	maxMs := flag.Int("max", 500, "pausa máxima entre teclas en `ms`; debe ser mayor o igual que -min")
+	rapidLevels := registerRapidFlags(flag.CommandLine)
 	flag.Usage = printUsage
 	flag.Parse()
 
-	if *minMs < 0 || *maxMs < *minMs {
-		printError("las pausas deben cumplir 0 <= -min <= -max (en milisegundos)")
+	if *clipboard && *file != "" {
+		printError("elige una sola fuente de texto: -f archivo o -p para el portapapeles")
 		os.Exit(2)
 	}
 	if *startSeconds < 0 {
 		printError("-t debe ser 0 o más segundos de espera antes de empezar")
 		os.Exit(2)
 	}
+	speed, err := resolveSpeed(flag.CommandLine, *minMs, *maxMs, *rapidLevels, *clipboard)
+	if err != nil {
+		printError("%v", err)
+		os.Exit(2)
+	}
+	if speed.rapidLevel >= 0 && *file == "" && !*clipboard {
+		printError("las velocidades -r/-r1…-r9 requieren -f archivo o -p")
+		os.Exit(2)
+	}
 
-	// Con -f: teclea el archivo con el teclado real y termina.
-	if *file != "" {
-		data, err := os.ReadFile(*file)
+	// Lee la fuente antes de la cuenta atrás y teclea ese contenido una sola vez.
+	if *file != "" || *clipboard {
+		var data []byte
+		label := "Tecleando el archivo"
+		if *clipboard {
+			data, err = clipboardText()
+			label = "Tecleando el portapapeles"
+		} else {
+			data, err = os.ReadFile(*file)
+			if err != nil {
+				err = fmt.Errorf("no se pudo leer %q: %w", *file, err)
+			}
+		}
 		if err != nil {
-			printError("no se pudo leer %q: %v", *file, err)
+			printError("%v", err)
 			os.Exit(1)
 		}
-		countdown(*startSeconds, "Tecleando el archivo")
+		fmt.Fprintln(os.Stderr, styleFor(os.Stderr).paint(colorCyan, "Velocidad: "+speed.description()))
+		countdown(*startSeconds, label)
 		keyboard := keyboardWriter{keyTap: robotgo.KeyTap, typeUnicode: robotgo.Type}
-		if err := keyboard.typeText(string(data), *minMs, *maxMs); err != nil {
+		if err := keyboard.typeText(string(data), speed.pacer()); err != nil {
 			printError("%v", err)
 			os.Exit(1)
 		}
@@ -77,30 +102,50 @@ func printUsage() {
 	style := styleFor(out)
 	fmt.Fprintln(out, style.paint(colorHeading, "AUTOTECLADO"))
 	fmt.Fprintf(out, "\n%s %s\n", style.paint(colorHeading, "Uso:"),
-		style.paint(colorGreen, os.Args[0]+" -f archivo [-t segundos] [-min ms] [-max ms]"))
-	fmt.Fprintln(out, style.paint(colorDim, "Sin -f: abre la ventana falsa y mueve el ratón. Ctrl+C para salir."))
+		style.paint(colorGreen, os.Args[0]+" (-f archivo | -p) [-t segundos]"))
+	fmt.Fprintln(out, "     "+style.paint(colorGreen, "[-r | -r1 … -r9 | -min ms -max ms]"))
+	fmt.Fprintln(out, style.paint(colorDim, "Sin -f ni -p: abre la ventana falsa y mueve el ratón. Ctrl+C para salir."))
 	fmt.Fprintln(out, "\n"+style.paint(colorHeading, "Opciones:"))
 	flag.VisitAll(func(f *flag.Flag) {
+		if f.Name == "r" || (len(f.Name) == 2 && f.Name[0] == 'r' && f.Name[1] >= '1' && f.Name[1] <= '9') {
+			return // Se muestran juntos en la tabla de velocidades.
+		}
 		name, usage := flag.UnquoteUsage(f)
-		fmt.Fprintf(out, "  %s %s\n      %s", style.paint(colorCyan, "-"+f.Name), name, usage)
-		if f.DefValue != "" {
+		fmt.Fprint(out, "  "+style.paint(colorCyan, "-"+f.Name))
+		if name != "" {
+			fmt.Fprint(out, " "+name)
+		}
+		fmt.Fprint(out, "\n      "+usage)
+		if f.DefValue != "" && f.DefValue != "false" {
 			fmt.Fprintf(out, " %s", style.paint(colorDim, "(por defecto: "+f.DefValue+")"))
 		}
 		fmt.Fprintln(out)
 	})
-	fmt.Fprintln(out, "\n"+style.paint(colorHeading, "Velocidad de escritura:"))
+	fmt.Fprintln(out, "\n"+style.paint(colorHeading, "Velocidades rápidas (con -f o -p):"))
+	for level := 0; level <= 9; level++ {
+		color := colorGreen
+		if level >= 6 {
+			color = colorYellow
+		} else if level >= 3 {
+			color = colorCyan
+		}
+		fmt.Fprintf(out, "  %s %s\n", style.paint(color, fmt.Sprintf("%-4s", "-"+rapidFlagName(level))), rapidDescription(level))
+	}
+	fmt.Fprintln(out, "  Con -p se usa -r por defecto. Todos los porcentajes se comparan con -r.")
+	fmt.Fprintln(out, "  La velocidad real depende del sistema y de la aplicación que recibe las teclas.")
+	fmt.Fprintln(out, "  Elige un solo nivel; no se combina con -min/-max.")
+	fmt.Fprintln(out, "\n"+style.paint(colorHeading, "Velocidad manual (-min y -max):"))
 	fmt.Fprintln(out, "  Después de cada tecla espera una pausa aleatoria entre -min y -max.")
 	fmt.Fprintln(out, "  Son milisegundos: "+style.paint(colorCyan, "1000 ms = 1 segundo")+". "+
 		style.paint(colorGreen, "Valores menores = más rápido."))
 	fmt.Fprintln(out, "  Por ejemplo, -min 10 -max 30 espera entre 0,01 y 0,03 segundos por tecla.")
+	fmt.Fprintln(out, "  Con -f, sin opciones de velocidad, las pausas son de 45 a 500 ms.")
 	fmt.Fprintln(out, "  "+style.paint(colorYellow, "-t es solo la espera inicial en segundos; no cambia la velocidad."))
-	fmt.Fprintln(out, "\n"+style.paint(colorHeading, "Ejemplos")+" (esperan 5 segundos para que enfoques la ventana):")
-	fmt.Fprintf(out, "  %s %s\n", style.paint(colorGreen, "Rápida:"),
-		style.paint(colorGreen, os.Args[0]+" -f notas.txt -t 5 -min 10 -max 30"))
-	fmt.Fprintf(out, "  %s  %s\n", style.paint(colorCyan, "Media:"),
-		style.paint(colorCyan, os.Args[0]+" -f notas.txt -t 5 -min 50 -max 150"))
-	fmt.Fprintf(out, "  %s  %s\n", style.paint(colorYellow, "Lenta:"),
-		style.paint(colorYellow, os.Args[0]+" -f notas.txt -t 5 -min 250 -max 500"))
+	fmt.Fprintln(out, "\n"+style.paint(colorHeading, "Ejemplos:"))
+	fmt.Fprintf(out, "  Portapapeles rápido, tras 3 segundos: %s\n", style.paint(colorGreen, os.Args[0]+" -p"))
+	fmt.Fprintf(out, "  Archivo a velocidad máxima:          %s\n", style.paint(colorGreen, os.Args[0]+" -f notas.txt -t 5 -r"))
+	fmt.Fprintf(out, "  Portapapeles un 20%% más lento:        %s\n", style.paint(colorCyan, os.Args[0]+" -p -r2"))
+	fmt.Fprintf(out, "  Portapapeles a la mitad de velocidad: %s\n", style.paint(colorYellow, os.Args[0]+" -p -t 5 -r5"))
 }
 
 // countdown avisa por stderr y espera n segundos para que el usuario enfoque
@@ -125,8 +170,9 @@ type keyboardWriter struct {
 // modificadores que KeyTap añade para mayúsculas y símbolos. En macOS, el envío
 // Unicode usa siempre el código de tecla 0 (A), que algunas consolas web leen
 // en lugar del texto. Se reserva ese envío para caracteres fuera de ASCII.
-func (k keyboardWriter) typeText(text string, minMs, maxMs int) error {
+func (k keyboardWriter) typeText(text string, pace func(time.Duration)) error {
 	for _, r := range text {
+		start := time.Now()
 		var err error
 		switch r {
 		case '\n':
@@ -148,7 +194,9 @@ func (k keyboardWriter) typeText(text string, minMs, maxMs int) error {
 		if err != nil {
 			return fmt.Errorf("no se pudo teclear %q: %w", r, err)
 		}
-		sleepRand(minMs, maxMs)
+		if pace != nil {
+			pace(time.Since(start))
+		}
 	}
 	return nil
 }

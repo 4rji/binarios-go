@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestTypeTextUsesKeyEventsForAllPrintableASCII(t *testing.T) {
@@ -29,11 +30,38 @@ func TestTypeTextUsesKeyEventsForAllPrintableASCII(t *testing.T) {
 			t.Errorf("ASCII %q used Unicode injection; web consoles would receive key A", text)
 		},
 	}
-	if err := keyboard.typeText(text.String(), 0, 0); err != nil {
+	if err := keyboard.typeText(text.String(), nil); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("key events = %q, want %q", got, want)
+	}
+}
+
+func TestTypeTextPacesOnlySuccessfullySentCharacters(t *testing.T) {
+	failure := errors.New("failed to press enter")
+	var sent, paced int
+	keyboard := keyboardWriter{
+		keyTap: func(key string, _ ...interface{}) error {
+			if key == "enter" {
+				return failure
+			}
+			sent++
+			return nil
+		},
+		typeUnicode: func(string, ...int) { sent++ },
+	}
+	err := keyboard.typeText("a\r\t ñ\nmore", func(time.Duration) {
+		paced++
+		if paced != sent {
+			t.Errorf("paced %d characters after sending %d", paced, sent)
+		}
+	})
+	if !errors.Is(err, failure) {
+		t.Fatalf("error = %v, want %v", err, failure)
+	}
+	if sent != 4 || paced != 4 {
+		t.Errorf("sent = %d, paced = %d, want four successful characters", sent, paced)
 	}
 }
 
@@ -67,7 +95,7 @@ func TestTypeTextPreservesTextAndLineEndings(t *testing.T) {
 					got = append(got, "text:"+text)
 				},
 			}
-			if err := keyboard.typeText(tt.text, 0, 0); err != nil {
+			if err := keyboard.typeText(tt.text, nil); err != nil {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(got, tt.want) {
@@ -94,7 +122,7 @@ func TestTypeTextStopsBeforeSendingMoreKeysAfterError(t *testing.T) {
 					t.Fatal("sent Unicode text after a keyboard failure")
 				},
 			}
-			err := keyboard.typeText("x\n\t ñ\n", 0, 0)
+			err := keyboard.typeText("x\n\t ñ\n", nil)
 			if !errors.Is(err, failure) {
 				t.Fatalf("error = %v, want %v", err, failure)
 			}
