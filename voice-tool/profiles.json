@@ -1,0 +1,96 @@
+{
+  "femeninas": {
+    "description": "Voz femenina natural en ingles americano; presentacion/demo de producto moderno.",
+    "variants": [
+      {
+        "label": "Presentacion elegante",
+        "model": "gpt-4o-mini-tts",
+        "voice": "marin",
+        "speed": 0.98,
+        "instructions": "Use a natural adult feminine voice in neutral American English. Deliver a polished, contemporary product keynote: composed, confident, clear, and quietly enthusiastic. Use a smooth mid-range pitch and measured pacing, with subtle emphasis on the product name and engineers. Read only the supplied sentence. Pronounce Digi as dih-jee. Take a short natural pause after Digi Field App. Keep the recording as clean spoken narration."
+      },
+      {
+        "label": "Lanzamiento moderno",
+        "model": "gpt-4o-mini-tts",
+        "voice": "coral",
+        "speed": 1.02,
+        "instructions": "Use a natural adult feminine voice in neutral American English. Present a new app with bright confidence, a slight audible smile, and modern product-launch energy. Keep the pitch naturally feminine, the diction crisp, and the delivery polished and engaging. Read only the supplied sentence. Pronounce Digi as dih-jee. Give a brief natural pause after Digi Field App and gently emphasize modern and engineers. Clean studio narration."
+      },
+      {
+        "label": "Demo tecnologica",
+        "model": "gpt-4o-mini-tts",
+        "voice": "nova",
+        "speed": 1,
+        "instructions": "Use a natural adult feminine voice in neutral American English. Sound like an articulate woman introducing a sophisticated engineering app in a modern technology demo. Be clear, assured, direct, and conversational, with a bright mid-range tone and efficient pacing. Read only the supplied sentence. Pronounce Digi as dih-jee. Pause briefly after Digi Field App, with subtle emphasis on app and engineers. Clean spoken narration."
+      },
+      {
+        "label": "Presentacion suave",
+        "model": "gpt-4o-mini-tts",
+        "voice": "shimmer",
+        "speed": 0.97,
+        "instructions": "Use a natural adult feminine voice in neutral American English. Deliver a refined, contemporary app introduction with a soft, smooth, luminous tone and calm confidence. Use gentle melodic phrasing and a little warmth, while keeping every word clear and the voice at a normal speaking volume. Read only the supplied sentence. Pronounce Digi as dih-jee. Pause lightly after Digi Field App and land the final word with assurance. Clean studio narration."
+      },
+      {
+        "label": "Presentacion ejecutiva",
+        "model": "gpt-4o-mini-tts",
+        "voice": "sage",
+        "speed": 0.98,
+        "instructions": "Use a natural adult feminine voice in neutral American English. Sound like a confident professional woman presenting a modern engineering product to a company. Use a mature, grounded feminine tone, precise diction, understated enthusiasm, and a smooth deliberate cadence. Read only the supplied sentence. Pronounce Digi as dih-jee. Use a short natural pause after Digi Field App and meaningful emphasis on modern app and engineers. Clean studio narration."
+      },
+      {
+        "label": "Demo dinamica",
+        "model": "gpt-4o-mini-tts",
+        "voice": "marin",
+        "speed": 1.04,
+        "instructions": "Use a natural adult feminine voice in neutral American English. Introduce the app with fresh, lively product-demo energy, a clear bright tone, and a confident conversational smile. Keep the rhythm brisk and smooth, with natural pitch variation and a friendly sense of discovery. Read only the supplied sentence. Pronounce Digi as dih-jee. Make the product name stand out with a tiny pause, then flow naturally to engineers. Clean spoken narration."
+      },
+      {
+        "label": "Explicacion cercana",
+        "model": "gpt-4o-mini-tts",
+        "voice": "coral",
+        "speed": 1,
+        "instructions": "Use a natural adult feminine voice in neutral American English. Deliver a warm, approachable app introduction as an experienced female product specialist. Be relaxed, reassuring, and quietly enthusiastic, with soft edges, clear words, and flowing conversational phrasing. Read only the supplied sentence. Pronounce Digi as dih-jee. Pause briefly after Digi Field App, gently emphasize new modern app, and finish warmly. Clean studio narration."
+      },
+      {
+        "label": "Lanzamiento energico",
+        "model": "gpt-4o-mini-tts",
+        "voice": "nova",
+        "speed": 1.05,
+        "instructions": "Use a natural adult feminine voice in neutral American English. Deliver an energetic modern app reveal with a vibrant feminine tone, crisp articulation, and confident forward momentum. Let the excitement be controlled and polished, with stronger but natural emphasis on the product name and modern app. Read only the supplied sentence. Pronounce Digi as dih-jee. Take a tiny pause after Digi Field App and finish engineers with a clear confident cadence. Clean studio narration."
+      },
+      {
+        "label": "Demo luminosa",
+        "model": "gpt-4o-mini-tts",
+        "voice": "shimmer",
+        "speed": 1.02,
+        "instructions": "Use a natural adult feminine voice in neutral American English. Sound bright, friendly, and precise, like a woman narrating a polished app feature showcase. Use a light clear feminine tone, a little smile, natural melodic inflection, and a smooth upbeat pace. Read only the supplied sentence. Pronounce Digi as dih-jee. Briefly pause after Digi Field App and subtly emphasize modern and engineers. Clean spoken narration."
+      },
+      {
+        "label": "Presentacion britanica",
+        "model": "gpt-4o-mini-tts",
+        "voice": "sage",
+        "speed": 1,
+        "instructions": "Use a natural adult feminine voice in contemporary standard British English. Present the app with elegant confidence and modern product-keynote polish. Use a clear refined feminine timbre, warm controlled energy, precise diction, and smooth conversational pacing. Read only the supplied sentence. Pronounce Digi as dih-jee. Briefly pause after Digi Field App and give subtle emphasis to modern app and engineers. Clean studio narration."
+      }
+    ]
+  },
+  "tecnico": {
+    "description": "Voz femenina para contenido tecnico (telemetria, diagnosticos, reportes de campo).",
+    "variants": [
+      {
+        "label": "Demo dinamica",
+        "model": "gpt-4o-mini-tts",
+        "voice": "marin",
+        "speed": 1.04,
+        "instructions": "Use a natural adult feminine voice in neutral American English. Introduce the app with fresh, lively product-demo energy, a clear bright tone, and a confident conversational smile. Keep the rhythm brisk and smooth, with natural pitch variation and a friendly sense of discovery. Read only the supplied sentence. Pronounce Digi as dih-jee. Make the product name stand out with a tiny pause, then flow naturally to engineers. Clean spoken narration."
+      },
+      {
+        "label": "Demo tecnologica",
+        "model": "gpt-4o-mini-tts",
+        "voice": "nova",
+        "speed": 1,
+        "instructions": "Use a natural adult feminine voice in neutral American English. Sound like an articulate woman introducing a sophisticated engineering app in a modern technology demo. Be clear, assured, direct, and conversational, with a bright mid-range tone and efficient pacing. Read only the supplied sentence. Pronounce Digi as dih-jee. Pause briefly after Digi Field App, with subtle emphasis on app and engineers. Clean spoken narration."
+      }
+    ]
+  }
+}

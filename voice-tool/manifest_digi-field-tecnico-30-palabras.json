@@ -1,0 +1,40 @@
+{
+  "text": "Digi Field App helps engineers analyze device telemetry, verify network connectivity, and document field measurements. Clear diagnostics and structured reports support faster troubleshooting and more precise technical decisions on site.",
+  "wordCount": 30,
+  "model": "gpt-4o-mini-tts",
+  "variants": [
+    {
+      "voice": "marin",
+      "speed": 1.04,
+      "instructions": "Use a natural adult feminine voice in neutral American English. Introduce the app with fresh, lively product-demo energy, a clear bright tone, and a confident conversational smile. Keep the rhythm brisk and smooth, with natural pitch variation and a friendly sense of discovery. Read only the supplied sentence. Pronounce Digi as dih-jee. Make the product name stand out with a tiny pause, then flow naturally to engineers. Clean spoken narration.",
+      "label": "Demo dinámica",
+      "referenceFile": "voces/this-is-digi-field-app-the-new-modern-ap-7f50e794372c6c1f.mp3",
+      "originalFile": "voces/digi-field-app-helps-engineers-analyze-d-93c0ff460c13222a.mp3",
+      "file": "marin-tecnico-30-palabras.mp3",
+      "sha256": "66ad4168db5abe5c81247eb2ee8ab08b69167f1d53529a736e094b3c57a9c0eb",
+      "durationSeconds": 15.048,
+      "bytes": 240768,
+      "sampleRateHz": 24000,
+      "channels": 1,
+      "validatedFullDecode": true,
+      "command": "./script --no-play --model gpt-4o-mini-tts --voice marin --speed 1.04 --instructions 'Use a natural adult feminine voice in neutral American English. Introduce the app with fresh, lively product-demo energy, a clear bright tone, and a confident conversational smile. Keep the rhythm brisk and smooth, with natural pitch variation and a friendly sense of discovery. Read only the supplied sentence. Pronounce Digi as dih-jee. Make the product name stand out with a tiny pause, then flow naturally to engineers. Clean spoken narration.' --file voces/digi-field-tecnico-30-palabras/texto.txt"
+    },
+    {
+      "voice": "nova",
+      "speed": 1,
+      "instructions": "Use a natural adult feminine voice in neutral American English. Sound like an articulate woman introducing a sophisticated engineering app in a modern technology demo. Be clear, assured, direct, and conversational, with a bright mid-range tone and efficient pacing. Read only the supplied sentence. Pronounce Digi as dih-jee. Pause briefly after Digi Field App, with subtle emphasis on app and engineers. Clean spoken narration.",
+      "label": "Demo tecnológica",
+      "referenceFile": "voces/this-is-digi-field-app-the-new-modern-ap-3e4ec4198c689f13.mp3",
+      "originalFile": "voces/digi-field-app-helps-engineers-analyze-d-6b89152da1f0cf5a.mp3",
+      "file": "nova-tecnico-30-palabras.mp3",
+      "sha256": "3d4ad534f55608e8592b561df785bdd1cef147ed460be27641fdfd582a7d1e28",
+      "durationSeconds": 15.6,
+      "bytes": 249600,
+      "sampleRateHz": 24000,
+      "channels": 1,
+      "validatedFullDecode": true,
+      "command": "./script --no-play --model gpt-4o-mini-tts --voice nova --speed 1 --instructions 'Use a natural adult feminine voice in neutral American English. Sound like an articulate woman introducing a sophisticated engineering app in a modern technology demo. Be clear, assured, direct, and conversational, with a bright mid-range tone and efficient pacing. Read only the supplied sentence. Pronounce Digi as dih-jee. Pause briefly after Digi Field App, with subtle emphasis on app and engineers. Clean spoken narration.' --file voces/digi-field-tecnico-30-palabras/texto.txt"
+    }
+  ],
+  "aiGenerated": true
+}
