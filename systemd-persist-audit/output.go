@@ -73,7 +73,7 @@ func severityTag(f *Finding, color bool) string {
 }
 
 func printSummary(out io.Writer, result ScanResult, findings []*Finding, limit int, color bool) {
-	fmt.Fprintf(out, "%s  %s\n", colorize(color, ansiCyan, "SPAUDIT"), colorize(color, ansiDim, "systemd persistence triage"))
+	fmt.Fprintf(out, "%s  %s\n", colorize(color, ansiCyan, "SYSTEMD-PERSIST-AUDIT"), colorize(color, ansiDim, "systemd persistence triage"))
 	fmt.Fprintf(out, "Scanned %d unit artifacts in %s", result.FilesScanned, result.Duration)
 	if result.Systemctl {
 		fmt.Fprint(out, "; runtime state included")
@@ -153,7 +153,7 @@ func printFinding(out io.Writer, finding *Finding, color bool) {
 
 func printJSON(out io.Writer, result ScanResult, findings []*Finding) error {
 	payload := jsonOutput{
-		Tool: "spaudit", Version: version, StartedAt: result.StartedAt.Format("2006-01-02T15:04:05.000Z07:00"),
+		Tool: "systemd-persist-audit", Version: version, StartedAt: result.StartedAt.Format("2006-01-02T15:04:05.000Z07:00"),
 		Duration: result.Duration, Root: result.Root, FilesScanned: result.FilesScanned,
 		Systemctl: result.Systemctl, Warnings: result.Warnings, Findings: findings,
 	}
@@ -213,7 +213,7 @@ func runFZF(findings []*Finding, color bool) error {
 		fmt.Println("No findings matched the selected filters.")
 		return nil
 	}
-	tempDir, err := os.MkdirTemp("", "spaudit-fzf-")
+	tempDir, err := os.MkdirTemp("", "systemd-persist-audit-fzf-")
 	if err != nil {
 		return fmt.Errorf("create fzf preview directory: %w", err)
 	}
@@ -257,7 +257,7 @@ func runFZF(findings []*Finding, color bool) error {
 	previewCommand := "cat -- " + shellQuote(tempDir) + "/{1}"
 	cmd := exec.Command(fzf,
 		"--ansi", "--no-sort", "--layout=reverse", "--border", "--multi",
-		"--prompt=spaudit> ", "--pointer=▶", "--marker=✓",
+		"--prompt=systemd-audit> ", "--pointer=▶", "--marker=✓",
 		"--header=Risk-sorted. Type to filter • Ctrl-S toggles match sorting • Tab selects • Enter opens",
 		"--delimiter=\t", "--with-nth=2..", "--preview="+previewCommand,
 		"--preview-window=right,60%,wrap", "--bind=ctrl-s:toggle-sort",

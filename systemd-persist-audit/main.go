@@ -33,8 +33,8 @@ func main() {
 func run(args []string) int {
 	opts, err := parseFlags(args)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "spaudit:", err)
-		fmt.Fprintln(os.Stderr, "Try 'spaudit --help' for usage.")
+		fmt.Fprintln(os.Stderr, "systemd-persist-audit:", err)
+		fmt.Fprintln(os.Stderr, "Try 'systemd-persist-audit --help' for usage.")
 		return 2
 	}
 	if opts.showHelp {
@@ -42,13 +42,13 @@ func run(args []string) int {
 		return 0
 	}
 	if opts.showVer {
-		fmt.Printf("spaudit %s (%s/%s)\n", version, runtime.GOOS, runtime.GOARCH)
+		fmt.Printf("systemd-persist-audit %s (%s/%s)\n", version, runtime.GOOS, runtime.GOARCH)
 		return 0
 	}
 
 	minSeverity, err := parseSeverity(opts.minLevel)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "spaudit:", err)
+		fmt.Fprintln(os.Stderr, "systemd-persist-audit:", err)
 		return 2
 	}
 
@@ -78,44 +78,44 @@ func run(args []string) int {
 		printFull(os.Stdout, result, findings, color)
 	case "json":
 		if err := printJSON(os.Stdout, result, findings); err != nil {
-			fmt.Fprintln(os.Stderr, "spaudit: could not encode JSON:", err)
+			fmt.Fprintln(os.Stderr, "systemd-persist-audit: could not encode JSON:", err)
 			return 1
 		}
 	case "fzf":
 		if !isTerminal(os.Stdin) || !isTerminal(os.Stdout) {
-			fmt.Fprintln(os.Stderr, "spaudit: fzf view requires an interactive terminal")
+			fmt.Fprintln(os.Stderr, "systemd-persist-audit: fzf view requires an interactive terminal")
 			return 2
 		}
 		if err := runFZF(findings, color); err != nil {
 			if errors.Is(err, errFZFUnavailable) {
-				fmt.Fprintln(os.Stderr, "spaudit: fzf is not installed; using the built-in menu")
+				fmt.Fprintln(os.Stderr, "systemd-persist-audit: fzf is not installed; using the built-in menu")
 				if err := runMenu(result, findings, color); err != nil {
-					fmt.Fprintln(os.Stderr, "spaudit:", err)
+					fmt.Fprintln(os.Stderr, "systemd-persist-audit:", err)
 					return 1
 				}
 			} else if !errors.Is(err, errFZFCancelled) {
-				fmt.Fprintln(os.Stderr, "spaudit:", err)
+				fmt.Fprintln(os.Stderr, "systemd-persist-audit:", err)
 				return 1
 			}
 		}
 	case "menu":
 		if !isTerminal(os.Stdin) || !isTerminal(os.Stdout) {
-			fmt.Fprintln(os.Stderr, "spaudit: menu view requires an interactive terminal")
+			fmt.Fprintln(os.Stderr, "systemd-persist-audit: menu view requires an interactive terminal")
 			return 2
 		}
 		if err := runMenu(result, findings, color); err != nil {
-			fmt.Fprintln(os.Stderr, "spaudit:", err)
+			fmt.Fprintln(os.Stderr, "systemd-persist-audit:", err)
 			return 1
 		}
 	default:
-		fmt.Fprintf(os.Stderr, "spaudit: unknown view %q\n", view)
+		fmt.Fprintf(os.Stderr, "systemd-persist-audit: unknown view %q\n", view)
 		return 2
 	}
 
 	if opts.failOn != "" {
 		threshold, err := parseSeverity(opts.failOn)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "spaudit:", err)
+			fmt.Fprintln(os.Stderr, "systemd-persist-audit:", err)
 			return 2
 		}
 		for _, finding := range findings {
@@ -129,7 +129,7 @@ func run(args []string) int {
 
 func parseFlags(args []string) (options, error) {
 	var opts options
-	fs := flag.NewFlagSet("spaudit", flag.ContinueOnError)
+	fs := flag.NewFlagSet("systemd-persist-audit", flag.ContinueOnError)
 	fs.SetOutput(new(strings.Builder))
 	fs.StringVar(&opts.view, "view", "auto", "output view: auto, summary, menu, fzf, full, or json")
 	fs.StringVar(&opts.root, "root", "/", "offline root filesystem to inspect")
@@ -201,10 +201,10 @@ func assignIDs(findings []*Finding) {
 }
 
 func printUsage(out *os.File) {
-	fmt.Fprintln(out, `spaudit - read-only systemd persistence triage
+	fmt.Fprintln(out, `systemd-persist-audit - read-only systemd persistence triage
 
 Usage:
-  spaudit [options]
+  systemd-persist-audit [options]
 
 Views:
   auto       Use fzf on an interactive terminal, the built-in menu otherwise,
@@ -228,10 +228,10 @@ Options:
   -h, --help           show this help
 
 Examples:
-  sudo spaudit
-  sudo spaudit --view fzf
-  spaudit --view full --severity suspicious
-  spaudit --view json --no-systemctl > findings.json
+  sudo systemd-persist-audit
+  sudo systemd-persist-audit --view fzf
+  systemd-persist-audit --view full --severity suspicious
+  systemd-persist-audit --view json --no-systemctl > findings.json
 
 The scanner never modifies units or starts/stops services. Findings are triage
 signals, not proof of compromise.`)

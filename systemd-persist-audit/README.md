@@ -1,6 +1,6 @@
-# spaudit
+# systemd-persist-audit
 
-`spaudit` is a read-only systemd persistence triage tool for Linux. It turns the
+`systemd-persist-audit` is a read-only systemd persistence triage tool for Linux. It turns the
 original `systemd-persist-audit` shell workflow into a single Go binary with
 risk scoring, compact summaries, JSON output, color, and interactive browsing.
 
@@ -15,8 +15,9 @@ enabled and active.
 Go 1.22 or newer is required only to build the binary:
 
 ```sh
-go build -trimpath -ldflags="-s -w" -o spaudit .
-sudo install -m 0755 spaudit /usr/local/bin/spaudit
+mkdir -p bin
+go build -trimpath -ldflags="-s -w" -o bin/systemd-persist-audit .
+sudo install -m 0755 bin/systemd-persist-audit /usr/local/bin/systemd-persist-audit
 ```
 
 It can also be installed directly from GitHub:
@@ -30,8 +31,8 @@ macOS or another platform with:
 
 ```sh
 mkdir -p dist
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/spaudit-linux-amd64 .
-CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/spaudit-linux-arm64 .
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/systemd-persist-audit-linux-amd64 .
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/systemd-persist-audit-linux-arm64 .
 ```
 
 These commands write static `amd64` and `arm64` binaries to `dist/`. Validate
@@ -40,11 +41,11 @@ changes with `go test ./...` and `go vet ./...`.
 ## Use
 
 ```sh
-sudo spaudit
-sudo spaudit --view fzf
-sudo spaudit --view menu
-spaudit --view full --severity suspicious
-spaudit --view json --no-systemctl > findings.json
+sudo systemd-persist-audit
+sudo systemd-persist-audit --view fzf
+sudo systemd-persist-audit --view menu
+systemd-persist-audit --view full --severity suspicious
+systemd-persist-audit --view json --no-systemctl > findings.json
 ```
 
 The default `auto` view behaves according to its environment:
@@ -62,16 +63,16 @@ Useful filters and automation options:
 
 ```sh
 # Only high-confidence leads
-spaudit --view full --severity suspicious
+systemd-persist-audit --view full --severity suspicious
 
 # Browse timer findings
-spaudit --view fzf --category timers
+systemd-persist-audit --view fzf --category timers
 
 # CI/response automation: exit 3 on suspicious or critical findings
-spaudit --view summary --fail-on suspicious
+systemd-persist-audit --view summary --fail-on suspicious
 
 # Inspect a mounted or extracted Linux filesystem without querying systemd
-spaudit --root /mnt/host --no-systemctl --view full
+systemd-persist-audit --root /mnt/host --no-systemctl --view full
 ```
 
 `NO_COLOR=1` and `--no-color` disable ANSI colors. The scan does not change,
@@ -81,4 +82,4 @@ of compromise; validate it against the host baseline and change history.
 ## Original script
 
 The existing `systemd-persist-audit` Bash script remains in the repository as
-the reference implementation. New development should target `spaudit`.
+the reference implementation. The Go binary keeps the same command name.
