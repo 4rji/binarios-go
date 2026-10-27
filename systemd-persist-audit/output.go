@@ -419,13 +419,14 @@ func renderMenu(out io.Writer, result ScanResult, findings []*Finding, state men
 	}
 	fmt.Fprintf(out, "Filters: severity >= %-10s  category: %-14s  search: %s\n",
 		state.minLevel.String(), category, query)
+	printMenuDivider(out, color)
 	fmt.Fprintf(out, "%s  %d findings  |  page %d/%d\n\n",
 		colorize(color, ansiBold, "Risk-sorted findings"), len(findings), state.page+1, pages)
 
 	if len(findings) == 0 {
 		fmt.Fprintln(out, colorize(color, ansiYellow, "No findings match the current filters. Press r to clear them."))
 	} else {
-		fmt.Fprintf(out, "  %-4s %-10s %-5s %-13s %s\n", "#", "RISK", "SCORE", "CATEGORY", "UNIT / PATH")
+		fmt.Fprintln(out, colorize(color, ansiCyan, fmt.Sprintf("  %-4s %-10s %-5s %-13s %s", "#", "RISK", "SCORE", "CATEGORY", "UNIT / PATH")))
 		fmt.Fprintln(out, "  ---- ---------- ----- ------------- --------------------------------------")
 		for i := start; i < end; i++ {
 			finding := findings[i]
@@ -436,12 +437,27 @@ func renderMenu(out io.Writer, result ScanResult, findings []*Finding, state men
 			fmt.Fprintf(out, "  %-4d %s %5d %-13s %s\n",
 				i+1, severityTag(finding, color), finding.Score, truncate(finding.Category, 13),
 				truncate(location, 38))
-			fmt.Fprintf(out, "       %s\n", truncate(finding.Title, 70))
+			fmt.Fprintf(out, "       %s\n", colorize(color, ansiBold, truncate(finding.Title, 70)))
 		}
 	}
 
-	fmt.Fprintln(out, "\nOpen: number   Search: /text   Severity: s   Category: c   Clear filters: r")
-	fmt.Fprint(out, "Navigate: Enter/n next   p previous   w warnings   h help   q quit")
+	fmt.Fprintln(out)
+	printMenuDivider(out, color)
+	fmt.Fprintln(out, colorize(color, ansiCyan, "MENU"))
+	fmt.Fprintf(out, "%s Open   %s Search   %s Severity   %s Category   %s Reset\n",
+		menuKey(color, "[number]"), menuKey(color, "[/text]"), menuKey(color, "[s]"),
+		menuKey(color, "[c]"), menuKey(color, "[r]"))
+	fmt.Fprintf(out, "%s Next   %s Previous   %s Warnings   %s Help   %s Quit",
+		menuKey(color, "[Enter/n]"), menuKey(color, "[p]"), menuKey(color, "[w]"),
+		menuKey(color, "[h]"), menuKey(color, "[q]"))
+}
+
+func printMenuDivider(out io.Writer, color bool) {
+	fmt.Fprintln(out, colorize(color, ansiDim, strings.Repeat("_", 76)))
+}
+
+func menuKey(color bool, key string) string {
+	return colorize(color, ansiYellow, key)
 }
 
 func filterMenuFindings(findings []*Finding, query, category string, minLevel Severity) []*Finding {
@@ -480,8 +496,13 @@ func browseFinding(reader *bufio.Reader, out io.Writer, findings []*Finding, ind
 	for {
 		clearScreen(out)
 		fmt.Fprintf(out, "%s  %d of %d\n", colorize(color, ansiCyan, "FINDING DETAIL"), index+1, len(findings))
+		printMenuDivider(out, color)
 		printFinding(out, findings[index], color)
-		fmt.Fprint(out, "\n[Enter/b] back   [n] next   [p] previous   [q] quit: ")
+		fmt.Fprintln(out)
+		printMenuDivider(out, color)
+		fmt.Fprintf(out, "%s Back   %s Next   %s Previous   %s Quit\n",
+			menuKey(color, "[Enter/b]"), menuKey(color, "[n]"), menuKey(color, "[p]"), menuKey(color, "[q]"))
+		fmt.Fprint(out, "Command: ")
 		choice, err := reader.ReadString('\n')
 		if err != nil && !errors.Is(err, io.EOF) {
 			return err
@@ -506,14 +527,16 @@ func chooseMenuCategory(reader *bufio.Reader, out io.Writer, findings []*Finding
 	groups := groupFindings(findings)
 	clearScreen(out)
 	fmt.Fprintln(out, colorize(color, ansiCyan, "FILTER BY CATEGORY"))
-	fmt.Fprintln(out, "   0) All categories")
+	printMenuDivider(out, color)
+	fmt.Fprintf(out, "   %s All categories\n", menuKey(color, "0)"))
 	for i, group := range groups {
 		marker := " "
 		if group.Name == current {
-			marker = "*"
+			marker = colorize(color, ansiGreen, "*")
 		}
-		fmt.Fprintf(out, " %s %2d) %-18s %d findings\n", marker, i+1, group.Name, len(group.Findings))
+		fmt.Fprintf(out, " %s %s %-18s %d findings\n", marker, menuKey(color, fmt.Sprintf("%2d)", i+1)), group.Name, len(group.Findings))
 	}
+	printMenuDivider(out, color)
 	fmt.Fprint(out, "\nCategory number ([Enter] keeps current): ")
 	choice, err := reader.ReadString('\n')
 	if err != nil && !errors.Is(err, io.EOF) {
@@ -539,21 +562,26 @@ func chooseMenuCategory(reader *bufio.Reader, out io.Writer, findings []*Finding
 func showMenuHelp(reader *bufio.Reader, out io.Writer, color bool) error {
 	clearScreen(out)
 	fmt.Fprintln(out, colorize(color, ansiCyan, "BROWSER HELP"))
-	fmt.Fprintln(out, `
-The list is always ordered from highest to lowest risk.
-
-  number     open the finding shown with that number
-  /text      search titles, units, paths, evidence, and recommendations
-  /          clear only the search text
-  s          cycle the minimum severity
-  c          choose one category (0 selects all)
-  r          clear every filter and return to the first page
-  Enter/n    next page (wraps after the last page)
-  p          previous page
-  w          show scanner warnings
-  q          quit
-
-Inside a finding, n and p move directly between details.`)
+	printMenuDivider(out, color)
+	fmt.Fprintln(out, "The list is always ordered from highest to lowest risk.")
+	fmt.Fprintln(out)
+	helpRows := [][2]string{
+		{"number", "open the finding shown with that number"},
+		{"/text", "search titles, units, paths, evidence, and recommendations"},
+		{"/", "clear only the search text"},
+		{"s", "cycle the minimum severity"},
+		{"c", "choose one category (0 selects all)"},
+		{"r", "clear every filter and return to the first page"},
+		{"Enter/n", "next page (wraps after the last page)"},
+		{"p", "previous page"},
+		{"w", "show scanner warnings"},
+		{"q", "quit"},
+	}
+	for _, row := range helpRows {
+		fmt.Fprintf(out, "  %-20s %s\n", menuKey(color, "["+row[0]+"]"), row[1])
+	}
+	fmt.Fprintln(out, "\nInside a finding, n and p move directly between details.")
+	printMenuDivider(out, color)
 	fmt.Fprint(out, "\nPress Enter to return: ")
 	_, err := reader.ReadString('\n')
 	if errors.Is(err, io.EOF) {
@@ -565,6 +593,7 @@ Inside a finding, n and p move directly between details.`)
 func showMenuWarnings(reader *bufio.Reader, out io.Writer, warnings []string, color bool) error {
 	clearScreen(out)
 	fmt.Fprintln(out, colorize(color, ansiCyan, "SCANNER WARNINGS"))
+	printMenuDivider(out, color)
 	if len(warnings) == 0 {
 		fmt.Fprintln(out, "\nNo scanner warnings were reported.")
 	} else {
@@ -572,6 +601,7 @@ func showMenuWarnings(reader *bufio.Reader, out io.Writer, warnings []string, co
 			fmt.Fprintf(out, "\n%d. %s\n", i+1, warning)
 		}
 	}
+	printMenuDivider(out, color)
 	fmt.Fprint(out, "\nPress Enter to return: ")
 	_, err := reader.ReadString('\n')
 	if errors.Is(err, io.EOF) {
