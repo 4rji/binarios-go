@@ -50,14 +50,18 @@ systemd-persist-audit --view json --no-systemctl > findings.json
 
 The default `auto` view behaves according to its environment:
 
-- interactive terminal with `fzf`: searchable, risk-sorted browser with a detail preview;
-- interactive terminal without `fzf`: dependency-free category menu with pagination;
+- interactive terminal: searchable, risk-sorted built-in browser;
 - redirected output: compact summary suitable for logs and automation.
 
-Inside `fzf`, type to filter by severity, score, category, unit, or title. Press
-`Ctrl-S` to toggle match sorting, `Tab` to select multiple findings, and `Enter`
-to print selected details after the browser closes. Initial order always puts
-the highest-risk findings first.
+In the built-in browser, enter a displayed number to open a finding, `/text` to
+search, `s` to cycle the minimum severity, and `c` to filter by category. Use
+`Enter`/`n` and `p` to move between pages. The controls remain visible at the
+bottom of the screen, and `h` opens the complete key reference.
+
+The optional `--view fzf` mode remains available. Inside `fzf`, type to filter
+by severity, score, category, unit, or title. Press `Ctrl-S` to toggle match
+sorting, `Tab` to select multiple findings, and `Enter` to print selected
+details after the browser closes.
 
 Useful filters and automation options:
 

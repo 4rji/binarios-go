@@ -294,78 +294,290 @@ func shellQuote(value string) string {
 
 func runMenu(result ScanResult, findings []*Finding, color bool) error {
 	reader := bufio.NewReader(os.Stdin)
+	return runMenuIO(reader, os.Stdout, result, findings, color)
+}
+
+const menuPageSize = 7
+
+type menuState struct {
+	query    string
+	category string
+	minLevel Severity
+	page     int
+}
+
+func runMenuIO(reader *bufio.Reader, out io.Writer, result ScanResult, findings []*Finding, color bool) error {
+	state := menuState{minLevel: SeverityInfo}
 	for {
-		clearScreen(os.Stdout)
-		printSummary(os.Stdout, result, findings, 0, color)
-		groups := groupFindings(findings)
-		if len(groups) == 0 {
-			return nil
+		visible := filterMenuFindings(findings, state.query, state.category, state.minLevel)
+		pages := pageCount(len(visible), menuPageSize)
+		if state.page >= pages {
+			state.page = pages - 1
 		}
-		fmt.Fprintln(os.Stdout, "\nSelect a category:")
-		for i, group := range groups {
-			fmt.Fprintf(os.Stdout, "  %2d) %-14s %4d findings  top score %d\n", i+1, group.Name, len(group.Findings), group.Findings[0].Score)
+		if state.page < 0 {
+			state.page = 0
 		}
-		fmt.Fprint(os.Stdout, "\nCategory number, [a]ll, or [q]uit: ")
+
+		clearScreen(out)
+		renderMenu(out, result, visible, state, color)
+		fmt.Fprint(out, "\nCommand: ")
 		choice, err := reader.ReadString('\n')
 		if err != nil && !errors.Is(err, io.EOF) {
 			return err
 		}
-		choice = strings.TrimSpace(choice)
-		if choice == "q" || choice == "Q" || errors.Is(err, io.EOF) {
+		if errors.Is(err, io.EOF) {
 			return nil
 		}
-		if choice == "a" || choice == "A" {
-			if err := pageFindings(reader, "All findings", findings, color); err != nil {
+		choice = strings.TrimSpace(choice)
+		switch strings.ToLower(choice) {
+		case "q", "quit", "exit":
+			return nil
+		case "h", "?", "help":
+			if err := showMenuHelp(reader, out, color); err != nil {
+				return err
+			}
+		case "w", "warnings":
+			if err := showMenuWarnings(reader, out, result.Warnings, color); err != nil {
+				return err
+			}
+		case "r", "reset":
+			state = menuState{minLevel: SeverityInfo}
+		case "s", "severity":
+			state.minLevel = nextSeverity(state.minLevel)
+			state.page = 0
+		case "c", "category":
+			category, err := chooseMenuCategory(reader, out, findings, state.category, color)
+			if err != nil {
+				return err
+			}
+			state.category = category
+			state.page = 0
+		case "", "n", "next":
+			if pages > 1 {
+				state.page = (state.page + 1) % pages
+			}
+		case "p", "prev", "previous":
+			if pages > 1 {
+				state.page = (state.page - 1 + pages) % pages
+			}
+		default:
+			if strings.HasPrefix(choice, "/") {
+				state.query = strings.TrimSpace(strings.TrimPrefix(choice, "/"))
+				state.page = 0
+				continue
+			}
+			index, convErr := strconv.Atoi(choice)
+			firstOnPage := state.page*menuPageSize + 1
+			lastOnPage := firstOnPage + menuPageSize - 1
+			if lastOnPage > len(visible) {
+				lastOnPage = len(visible)
+			}
+			if convErr != nil || index < firstOnPage || index > lastOnPage {
+				continue
+			}
+			if err := browseFinding(reader, out, visible, index-1, color); err != nil {
 				if errors.Is(err, errMenuQuit) {
 					return nil
 				}
 				return err
 			}
-			continue
-		}
-		index, convErr := strconv.Atoi(choice)
-		if convErr != nil || index < 1 || index > len(groups) {
-			continue
-		}
-		if err := pageFindings(reader, groups[index-1].Name, groups[index-1].Findings, color); err != nil {
-			if errors.Is(err, errMenuQuit) {
-				return nil
-			}
-			return err
 		}
 	}
 }
 
-func pageFindings(reader *bufio.Reader, title string, findings []*Finding, color bool) error {
-	const pageSize = 8
-	for start := 0; start < len(findings); start += pageSize {
-		clearScreen(os.Stdout)
-		end := start + pageSize
-		if end > len(findings) {
-			end = len(findings)
+func renderMenu(out io.Writer, result ScanResult, findings []*Finding, state menuState, color bool) {
+	counts := severityCounts(findings)
+	pages := pageCount(len(findings), menuPageSize)
+	start := state.page * menuPageSize
+	end := start + menuPageSize
+	if end > len(findings) {
+		end = len(findings)
+	}
+
+	fmt.Fprintf(out, "%s  %s\n", colorize(color, ansiCyan, "SYSTEMD PERSISTENCE AUDIT"), colorize(color, ansiDim, "read-only triage"))
+	fmt.Fprintf(out, "%d artifacts scanned in %s", result.FilesScanned, result.Duration)
+	if result.Systemctl {
+		fmt.Fprint(out, " | runtime state included")
+	}
+	fmt.Fprintln(out)
+	if len(result.Warnings) > 0 {
+		fmt.Fprintf(out, "%s %d (press w to view)\n", colorize(color, ansiYellow, "Warnings:"), len(result.Warnings))
+	}
+	fmt.Fprintf(out, "Matching risk: %s %d  %s %d  %s %d  %s %d\n",
+		colorize(color, ansiMagenta, "critical"), counts[SeverityCritical],
+		colorize(color, ansiRed, "suspicious"), counts[SeveritySuspicious],
+		colorize(color, ansiYellow, "review"), counts[SeverityReview],
+		colorize(color, ansiGreen, "info"), counts[SeverityInfo])
+
+	category := "all"
+	if state.category != "" {
+		category = state.category
+	}
+	query := "none"
+	if state.query != "" {
+		query = strconv.Quote(state.query)
+	}
+	fmt.Fprintf(out, "Filters: severity >= %-10s  category: %-14s  search: %s\n",
+		state.minLevel.String(), category, query)
+	fmt.Fprintf(out, "%s  %d findings  |  page %d/%d\n\n",
+		colorize(color, ansiBold, "Risk-sorted findings"), len(findings), state.page+1, pages)
+
+	if len(findings) == 0 {
+		fmt.Fprintln(out, colorize(color, ansiYellow, "No findings match the current filters. Press r to clear them."))
+	} else {
+		fmt.Fprintf(out, "  %-4s %-10s %-5s %-13s %s\n", "#", "RISK", "SCORE", "CATEGORY", "UNIT / PATH")
+		fmt.Fprintln(out, "  ---- ---------- ----- ------------- --------------------------------------")
+		for i := start; i < end; i++ {
+			finding := findings[i]
+			location := finding.Unit
+			if location == "" {
+				location = finding.Path
+			}
+			fmt.Fprintf(out, "  %-4d %s %5d %-13s %s\n",
+				i+1, severityTag(finding, color), finding.Score, truncate(finding.Category, 13),
+				truncate(location, 38))
+			fmt.Fprintf(out, "       %s\n", truncate(finding.Title, 70))
 		}
-		fmt.Fprintf(os.Stdout, "%s  %d-%d of %d\n", colorize(color, ansiCyan, title), start+1, end, len(findings))
-		for _, finding := range findings[start:end] {
-			printFinding(os.Stdout, finding, color)
+	}
+
+	fmt.Fprintln(out, "\nOpen: number   Search: /text   Severity: s   Category: c   Clear filters: r")
+	fmt.Fprint(out, "Navigate: Enter/n next   p previous   w warnings   h help   q quit")
+}
+
+func filterMenuFindings(findings []*Finding, query, category string, minLevel Severity) []*Finding {
+	query = strings.ToLower(strings.TrimSpace(query))
+	filtered := make([]*Finding, 0, len(findings))
+	for _, finding := range findings {
+		if finding.Severity < minLevel || (category != "" && finding.Category != category) {
+			continue
 		}
-		if end == len(findings) {
-			fmt.Fprint(os.Stdout, "\n[Enter] back to categories, [q] quit: ")
-		} else {
-			fmt.Fprint(os.Stdout, "\n[Enter] next page, [b] back, [q] quit: ")
+		haystack := strings.ToLower(strings.Join([]string{
+			finding.Severity.String(), finding.Category, finding.Title, finding.Unit,
+			finding.Path, finding.Evidence, finding.Recommendation,
+		}, " "))
+		if query == "" || strings.Contains(haystack, query) {
+			filtered = append(filtered, finding)
 		}
+	}
+	return filtered
+}
+
+func pageCount(items, pageSize int) int {
+	if items == 0 {
+		return 1
+	}
+	return (items + pageSize - 1) / pageSize
+}
+
+func nextSeverity(current Severity) Severity {
+	if current >= SeverityCritical {
+		return SeverityInfo
+	}
+	return current + 1
+}
+
+func browseFinding(reader *bufio.Reader, out io.Writer, findings []*Finding, index int, color bool) error {
+	for {
+		clearScreen(out)
+		fmt.Fprintf(out, "%s  %d of %d\n", colorize(color, ansiCyan, "FINDING DETAIL"), index+1, len(findings))
+		printFinding(out, findings[index], color)
+		fmt.Fprint(out, "\n[Enter/b] back   [n] next   [p] previous   [q] quit: ")
 		choice, err := reader.ReadString('\n')
 		if err != nil && !errors.Is(err, io.EOF) {
 			return err
 		}
-		choice = strings.TrimSpace(choice)
-		if choice == "q" || choice == "Q" || errors.Is(err, io.EOF) {
-			return errMenuQuit
+		if errors.Is(err, io.EOF) {
+			return nil
 		}
-		if choice == "b" || choice == "B" || end == len(findings) {
+		switch strings.ToLower(strings.TrimSpace(choice)) {
+		case "q", "quit":
+			return errMenuQuit
+		case "n", "next":
+			index = (index + 1) % len(findings)
+		case "p", "prev", "previous":
+			index = (index - 1 + len(findings)) % len(findings)
+		default:
 			return nil
 		}
 	}
-	return nil
+}
+
+func chooseMenuCategory(reader *bufio.Reader, out io.Writer, findings []*Finding, current string, color bool) (string, error) {
+	groups := groupFindings(findings)
+	clearScreen(out)
+	fmt.Fprintln(out, colorize(color, ansiCyan, "FILTER BY CATEGORY"))
+	fmt.Fprintln(out, "   0) All categories")
+	for i, group := range groups {
+		marker := " "
+		if group.Name == current {
+			marker = "*"
+		}
+		fmt.Fprintf(out, " %s %2d) %-18s %d findings\n", marker, i+1, group.Name, len(group.Findings))
+	}
+	fmt.Fprint(out, "\nCategory number ([Enter] keeps current): ")
+	choice, err := reader.ReadString('\n')
+	if err != nil && !errors.Is(err, io.EOF) {
+		return current, err
+	}
+	if errors.Is(err, io.EOF) {
+		return current, nil
+	}
+	choice = strings.TrimSpace(choice)
+	if choice == "" {
+		return current, nil
+	}
+	index, convErr := strconv.Atoi(choice)
+	if convErr != nil || index < 0 || index > len(groups) {
+		return current, nil
+	}
+	if index == 0 {
+		return "", nil
+	}
+	return groups[index-1].Name, nil
+}
+
+func showMenuHelp(reader *bufio.Reader, out io.Writer, color bool) error {
+	clearScreen(out)
+	fmt.Fprintln(out, colorize(color, ansiCyan, "BROWSER HELP"))
+	fmt.Fprintln(out, `
+The list is always ordered from highest to lowest risk.
+
+  number     open the finding shown with that number
+  /text      search titles, units, paths, evidence, and recommendations
+  /          clear only the search text
+  s          cycle the minimum severity
+  c          choose one category (0 selects all)
+  r          clear every filter and return to the first page
+  Enter/n    next page (wraps after the last page)
+  p          previous page
+  w          show scanner warnings
+  q          quit
+
+Inside a finding, n and p move directly between details.`)
+	fmt.Fprint(out, "\nPress Enter to return: ")
+	_, err := reader.ReadString('\n')
+	if errors.Is(err, io.EOF) {
+		return nil
+	}
+	return err
+}
+
+func showMenuWarnings(reader *bufio.Reader, out io.Writer, warnings []string, color bool) error {
+	clearScreen(out)
+	fmt.Fprintln(out, colorize(color, ansiCyan, "SCANNER WARNINGS"))
+	if len(warnings) == 0 {
+		fmt.Fprintln(out, "\nNo scanner warnings were reported.")
+	} else {
+		for i, warning := range warnings {
+			fmt.Fprintf(out, "\n%d. %s\n", i+1, warning)
+		}
+	}
+	fmt.Fprint(out, "\nPress Enter to return: ")
+	_, err := reader.ReadString('\n')
+	if errors.Is(err, io.EOF) {
+		return nil
+	}
+	return err
 }
 
 func clearScreen(out io.Writer) {

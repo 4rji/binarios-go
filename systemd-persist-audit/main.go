@@ -5,13 +5,12 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"os/exec"
 	"runtime"
 	"sort"
 	"strings"
 )
 
-const version = "0.1.0"
+const version = "0.2.0"
 
 type options struct {
 	view      string
@@ -61,11 +60,7 @@ func run(args []string) int {
 	view := opts.view
 	if view == "auto" {
 		if isTerminal(os.Stdin) && isTerminal(os.Stdout) {
-			if _, err := exec.LookPath("fzf"); err == nil {
-				view = "fzf"
-			} else {
-				view = "menu"
-			}
+			view = "menu"
 		} else {
 			view = "summary"
 		}
@@ -207,10 +202,10 @@ Usage:
   systemd-persist-audit [options]
 
 Views:
-  auto       Use fzf on an interactive terminal, the built-in menu otherwise,
-             and a compact summary when output is redirected (default).
+  auto       Use the built-in browser on an interactive terminal and a compact
+             summary when output is redirected (default).
   summary    Counts, category rollup, and the highest-risk findings.
-  menu       Dependency-free category browser.
+  menu       Searchable, dependency-free findings browser.
   fzf        Searchable list with detail preview and multi-select.
   full       Every finding, grouped by category and risk-sorted.
   json       Machine-readable scan result.
@@ -229,6 +224,7 @@ Options:
 
 Examples:
   sudo systemd-persist-audit
+  sudo systemd-persist-audit --view menu
   sudo systemd-persist-audit --view fzf
   systemd-persist-audit --view full --severity suspicious
   systemd-persist-audit --view json --no-systemctl > findings.json
