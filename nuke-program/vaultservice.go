@@ -35,6 +35,7 @@ type UnlockState struct {
 
 type runtimeVault struct {
 	path     string
+	root     string
 	name     string
 	status   string
 	attempts int
@@ -48,6 +49,7 @@ type nukeJob struct {
 	id            string
 	reason        string
 	containerPath string
+	vaultRoot     string
 	runtimeState  *runtimeVault
 	session       *vault.Session
 	mount         MountResult
@@ -78,15 +80,21 @@ func NewVaultService(dataRoot string) (*VaultService, error) {
 	if err != nil {
 		return nil, err
 	}
-	vaultDir := filepath.Join(dataRoot, "vaults")
+	if err := os.MkdirAll(dataRoot, 0o700); err != nil {
+		return nil, err
+	}
+	if err := os.Chmod(dataRoot, 0o700); err != nil {
+		return nil, err
+	}
+	vaultDir, err := loadVaultDirectory(dataRoot)
+	if err != nil {
+		return nil, err
+	}
 	challengeDir := filepath.Join(dataRoot, "challenges")
 	if err := os.MkdirAll(vaultDir, 0o700); err != nil {
 		return nil, err
 	}
 	if err := os.MkdirAll(challengeDir, 0o700); err != nil {
-		return nil, err
-	}
-	if err := os.Chmod(dataRoot, 0o700); err != nil {
 		return nil, err
 	}
 	if err := os.Chmod(vaultDir, 0o700); err != nil {
@@ -113,15 +121,24 @@ func (s *VaultService) setEmitter(emit func(string, any)) {
 }
 
 func (s *VaultService) ListVaults() ([]vault.VaultInfo, error) {
-	return vault.List(s.vaultDir)
+	s.mu.Lock()
+	vaultDir := s.vaultDir
+	s.mu.Unlock()
+	return vault.List(vaultDir)
 }
 
 func (s *VaultService) CreateVault(name, password, nukePassword string) (vault.VaultInfo, error) {
-	return vault.Create(s.vaultDir, name, password, nukePassword, s.kdfParams)
+	s.mu.Lock()
+	vaultDir := s.vaultDir
+	s.mu.Unlock()
+	return vault.Create(vaultDir, name, password, nukePassword, s.kdfParams)
 }
 
 func (s *VaultService) ArmVault(id string) (UnlockState, error) {
-	containerPath, err := vault.FindPath(s.vaultDir, id)
+	s.mu.Lock()
+	vaultRoot := s.vaultDir
+	s.mu.Unlock()
+	containerPath, err := vault.FindPath(vaultRoot, id)
 	if err != nil {
 		return UnlockState{}, err
 	}
@@ -153,6 +170,7 @@ func (s *VaultService) ArmVault(id string) (UnlockState, error) {
 	}
 	runtimeState := &runtimeVault{
 		path:     containerPath,
+		root:     vaultRoot,
 		name:     info.Name,
 		status:   "armed",
 		attempts: attempts,
@@ -426,6 +444,7 @@ func (s *VaultService) claimNukeLocked(id, reason string) *nukeJob {
 		id:            id,
 		reason:        reason,
 		containerPath: runtimeState.path,
+		vaultRoot:     runtimeState.root,
 		runtimeState:  runtimeState,
 		session:       runtimeState.session,
 		mount:         runtimeState.mount,
@@ -443,7 +462,7 @@ func (s *VaultService) runNuke(job *nukeJob) {
 		_ = s.mounter.ForceUnmount(ctx, job.mount)
 		cancel()
 	}
-	err := vault.Wipe(job.containerPath, s.vaultDir, func(update vault.WipeProgress) {
+	err := vault.Wipe(job.containerPath, job.vaultRoot, func(update vault.WipeProgress) {
 		s.emitEvent(VaultEvent{VaultID: job.id, Status: "wiping", Message: job.reason, Phase: update.Phase, Percent: update.Percent})
 	})
 	s.mu.Lock()

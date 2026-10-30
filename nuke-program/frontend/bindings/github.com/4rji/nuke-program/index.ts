@@ -8,6 +8,7 @@ export {
 
 export type {
     MountResult,
+    StorageLocation,
     UnlockState,
     VaultEvent
 } from "./models.js";

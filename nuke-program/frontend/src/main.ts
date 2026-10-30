@@ -34,8 +34,15 @@ type VaultEvent = {
     percent: number;
 };
 
+type StorageLocation = {
+    path: string;
+    isDefault: boolean;
+    isCloud: boolean;
+};
+
 const app = document.querySelector<HTMLElement>("#app")!;
 let selectedVault: VaultInfo | null = null;
+let storageLocation: StorageLocation = {path: "", isDefault: true, isCloud: false};
 let countdownTimer: number | undefined;
 let destructionState: "none" | "nuking" | "wiping" | "destroyed" = "none";
 
@@ -48,7 +55,7 @@ function shell(content: string, tone = ""): string {
             <p class="eyebrow">FORENSIC LAB / CONTROLLED DESTRUCTION</p>
             <h1>NUKE<span>VAULT</span></h1>
           </div>
-          <div class="platform-pill">v0.1.6 · NO FUSE</div>
+          <div class="platform-pill">v0.1.7 · NO FUSE</div>
         </header>
         ${content}
         <footer>
@@ -73,6 +80,16 @@ function renderSetup(error = "") {
         <h2>Create a disposable encrypted vault</h2>
         <p class="lede">This container is intentionally hostile to missed and incorrect authentication. Use test evidence only.</p>
         ${error ? `<p class="alert">${escapeHTML(error)}</p>` : ""}
+		<div class="storage-card">
+		  <div>
+			<p class="label">ENCRYPTED CONTAINER LOCATION</p>
+			<p class="mono storage-path">${escapeHTML(storageLocation.path || "Loading…")}</p>
+		  </div>
+		  <button id="choose-storage" class="secondary" type="button">CHOOSE FOLDER</button>
+		</div>
+		<p class="warning storage-warning">${storageLocation.isCloud
+			? "Cloud location detected. Sync providers may retain versions or remote copies that a local wipe cannot erase."
+			: "Documents and cloud folders are supported. NukeVault creates a dedicated NukeVault subfolder."}</p>
         <form id="create-form" class="form-stack" autocomplete="off">
           <label>Vault name<input id="vault-name" maxlength="64" value="Evidence Lab" required /></label>
           <label>Unlock password<input id="unlock-password" type="password" minlength="8" required autocomplete="new-password" /></label>
@@ -86,6 +103,19 @@ function renderSetup(error = "") {
         </div>
       </div>`);
     document.querySelector<HTMLFormElement>("#create-form")!.addEventListener("submit", createVault);
+	document.querySelector<HTMLButtonElement>("#choose-storage")!.addEventListener("click", chooseStorageLocation);
+}
+
+async function chooseStorageLocation() {
+	const button = document.querySelector<HTMLButtonElement>("#choose-storage")!;
+	button.disabled = true;
+	button.textContent = "CHOOSING…";
+	try {
+		storageLocation = await VaultService.ChooseStorageLocation() as StorageLocation;
+		await boot();
+	} catch (error) {
+		renderSetup(errorMessage(error));
+	}
 }
 
 async function createVault(event: SubmitEvent) {
@@ -296,7 +326,11 @@ async function boot() {
 	destructionState = "none";
     app.innerHTML = shell(`<div class="panel loading"><div class="spinner"></div><p>Inspecting managed vault directory…</p></div>`);
     try {
-        const vaults = await VaultService.ListVaults() as VaultInfo[];
+        const [vaults, location] = await Promise.all([
+			VaultService.ListVaults() as Promise<VaultInfo[]>,
+			VaultService.GetStorageLocation() as Promise<StorageLocation>,
+		]);
+		storageLocation = location;
         if (!vaults.length) {
             renderSetup();
             return;

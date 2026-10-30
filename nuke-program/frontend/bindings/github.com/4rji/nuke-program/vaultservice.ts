@@ -17,12 +17,20 @@ export function ArmVault(id: string): $CancellablePromise<$models.UnlockState> {
     return $Call.ByID(2684613763, id);
 }
 
+export function ChooseStorageLocation(): $CancellablePromise<$models.StorageLocation> {
+    return $Call.ByID(1688257310);
+}
+
 export function CreateVault(name: string, password: string, nukePassword: string): $CancellablePromise<vault$0.VaultInfo> {
     return $Call.ByID(426481523, name, password, nukePassword);
 }
 
 export function DestroyVault(id: string): $CancellablePromise<$models.UnlockState> {
     return $Call.ByID(3066419307, id);
+}
+
+export function GetStorageLocation(): $CancellablePromise<$models.StorageLocation> {
+    return $Call.ByID(105253831);
 }
 
 export function ListVaults(): $CancellablePromise<vault$0.VaultInfo[] | null> {

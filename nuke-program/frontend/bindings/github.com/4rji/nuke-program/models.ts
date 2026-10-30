@@ -8,6 +8,12 @@ export interface MountResult {
     "message": string;
 }
 
+export interface StorageLocation {
+    "path": string;
+    "isDefault": boolean;
+    "isCloud": boolean;
+}
+
 export interface UnlockState {
     "vaultId": string;
     "status": string;

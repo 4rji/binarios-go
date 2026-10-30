@@ -52,6 +52,10 @@ The current laboratory format is intentionally application-specific:
 
 The decrypted filesystem is kept in memory. Successful WebDAV mutations are encrypted back into the container after each request. WebDAV requests may run concurrently so macOS Finder can complete the parallel metadata and capability requests it issues while streaming an external file upload; encrypted snapshot writes remain serialized. This first version limits a vault to 256 MiB and an individual WebDAV upload to 64 MiB.
 
+Before creating a vault, **Choose Folder** can select Documents, iCloud Drive, or another writable directory through the native macOS/Linux folder dialog. NukeVault creates a dedicated `NukeVault/` subdirectory inside the selected parent and remembers that location in its local settings. The wipe remains scoped to the selected dedicated directory and still refuses arbitrary files, directories, and devices.
+
+Cloud storage changes the destruction guarantee: iCloud, OneDrive, Dropbox, snapshots, and backup services may retain remote versions or deleted copies after the local `.nukevol` has been cryptographically nuked and overwritten. The persisted failed-attempt counter remains local to this installation, so a second computer does not inherit it reliably through cloud sync.
+
 This custom format stops generic disk-image tools from mounting a locked container. It does not claim to resist an administrator who can instrument the application, inspect its process memory while unlocked, or reverse engineer the format.
 
 The 10-second rule is enforced only while the application process is alive. Force-quitting the process, cutting power, restoring a snapshot, or copying the container before a challenge can bypass or replay the laboratory scenario. While unlocked, another process running as the same user may also be able to observe or access the local mount. NukeVault is a teaching tool, not an anti-forensics guarantee.
@@ -61,6 +65,8 @@ The 10-second rule is enforced only while the application process is alive. Forc
 ### macOS
 
 NukeVault invokes the built-in `mount_webdav` command and mounts inside its private application data directory. Every unlock uses a unique mount-point suffix, so a WebDAV mount left behind by a crashed older process cannot capture the new session. No kernel extension, macFUSE, or FUSE-T installation is required. If a management profile blocks WebDAV mounting, the local session URL remains available and the UI reports the fallback.
+
+The native folder selector can choose `Documents`, `iCloud Drive`, or an existing `NukeVault` folder. When a parent such as `Documents` is selected, the resulting container path is `Documents/NukeVault/<id>.nukevol`.
 
 Vaults are stored under:
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -261,6 +262,71 @@ func TestChallengeDeadlineExpiresWhileAppIsClosed(t *testing.T) {
 	}
 	if _, found, err := second.loadChallengeState(info.ID); err != nil || found {
 		t.Fatalf("completed Nuke left persisted challenge state: found=%v err=%v", found, err)
+	}
+}
+
+func TestCustomStorageLocationPersistsAndScopesWipe(t *testing.T) {
+	dataRoot := t.TempDir()
+	selectedParent := t.TempDir()
+	sentinel := filepath.Join(selectedParent, "keep-me.txt")
+	if err := os.WriteFile(sentinel, []byte("outside the dedicated vault directory"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	first, err := NewVaultService(dataRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first.kdfParams = vault.KDFParams{Time: 1, MemoryKiB: 8 * 1024, Threads: 1}
+	first.challengeDuration = 5 * time.Second
+	first.mounter = testMounter{}
+	location, err := first.setStorageLocation(selectedParent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedDirectory := filepath.Join(selectedParent, "NukeVault")
+	expectedDirectory, err = filepath.EvalSymlinks(expectedDirectory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if location.Path != expectedDirectory || location.IsDefault {
+		t.Fatalf("unexpected custom location: %#v", location)
+	}
+	info, err := first.CreateVault("Portable Evidence", "correct horse", "burn after reading")
+	if err != nil {
+		t.Fatal(err)
+	}
+	containerPath := filepath.Join(expectedDirectory, info.ID+".nukevol")
+	if _, err := os.Stat(containerPath); err != nil {
+		t.Fatalf("container was not created in selected location: %v", err)
+	}
+	if err := first.ServiceShutdown(); err != nil {
+		t.Fatal(err)
+	}
+
+	second, err := NewVaultService(dataRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second.kdfParams = vault.KDFParams{Time: 1, MemoryKiB: 8 * 1024, Threads: 1}
+	second.challengeDuration = 5 * time.Second
+	second.mounter = testMounter{}
+	t.Cleanup(func() { _ = second.ServiceShutdown() })
+	if reopened := second.GetStorageLocation(); reopened.Path != expectedDirectory {
+		t.Fatalf("custom location was not restored: %#v", reopened)
+	}
+	if _, err := second.ArmVault(info.ID); err != nil {
+		t.Fatal(err)
+	}
+	state, err := second.SubmitPassword(info.ID, "burn after reading")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Status != "nuking" {
+		t.Fatalf("unexpected Nuke state: %#v", state)
+	}
+	waitUntilRemoved(t, containerPath)
+	if _, err := os.Stat(sentinel); err != nil {
+		t.Fatalf("wipe escaped the dedicated custom directory: %v", err)
 	}
 }
 
