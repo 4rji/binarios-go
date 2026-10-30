@@ -256,6 +256,9 @@ func TestChallengeDeadlineExpiresWhileAppIsClosed(t *testing.T) {
 		t.Fatalf("expired persisted deadline was reset: %#v", state)
 	}
 	waitUntilRemoved(t, containerPath)
+	if err := second.ServiceShutdown(); err != nil {
+		t.Fatal(err)
+	}
 	if _, found, err := second.loadChallengeState(info.ID); err != nil || found {
 		t.Fatalf("completed Nuke left persisted challenge state: found=%v err=%v", found, err)
 	}
