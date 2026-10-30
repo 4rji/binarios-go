@@ -95,9 +95,15 @@ This directory is its own Go module. Run Go commands here rather than from the m
 Requirements:
 
 - Go 1.26 or newer;
-- Wails 3.0.0;
+- Wails 3;
 - Node.js and npm; and
 - the platform build dependencies reported by `wails3 doctor`.
+
+Install the Wails 3 CLI:
+
+```sh
+go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+```
 
 Install dependencies and run in development mode:
 
