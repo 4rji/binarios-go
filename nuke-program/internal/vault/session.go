@@ -136,10 +136,6 @@ func (s *Session) wrapDAV(next http.Handler) http.Handler {
 			http.Error(w, "loopback access only", http.StatusForbidden)
 			return
 		}
-		if r.ContentLength > 64<<20 {
-			http.Error(w, "individual files are limited to 64 MiB in lab mode", http.StatusRequestEntityTooLarge)
-			return
-		}
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		mutating := isMutatingMethod(r.Method)
