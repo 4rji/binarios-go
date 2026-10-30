@@ -25,6 +25,8 @@ The Nuke sequence:
 
 After a successful unlock, the UI also offers **Destroy Vault**. It opens an in-app warning with separate **Cancel** and **Confirm Destroy** buttons before starting the same Nuke sequence. The backend refuses manual destruction unless that vault is currently unlocked. Destruction closes the WebDAV server without saving an unfinished upload, so a stalled Finder copy cannot hold the wipe open.
 
+**Lock & Exit** unmounts the decrypted view, closes the local WebDAV session, clears the in-memory runtime state, and then quits NukeVault. It does not return to the unlock screen or start a new challenge countdown.
+
 On APFS, copy-on-write filesystems, SSDs, snapshots, and backup systems, software overwriting cannot prove that every historical physical copy disappeared. Destroying the wrapped keys is the primary cryptographic Nuke; the two full overwrite passes are included for the laboratory comparison requested by this project.
 
 ## Safety boundary
@@ -53,6 +55,8 @@ The current laboratory format is intentionally application-specific:
 The decrypted filesystem is kept in memory. Successful WebDAV mutations are encrypted back into the container after each request. WebDAV requests may run concurrently so macOS Finder can complete the parallel metadata and capability requests it issues while streaming an external file upload; encrypted snapshot writes remain serialized. This first version limits a vault to 256 MiB and an individual WebDAV upload to 64 MiB.
 
 Before creating a vault, **Choose Folder** can select Documents, iCloud Drive, or another writable directory through the native macOS/Linux folder dialog. NukeVault creates a dedicated `NukeVault/` subdirectory inside the selected parent and remembers that location in its local settings. The wipe remains scoped to the selected dedicated directory and still refuses arbitrary files, directories, and devices.
+
+**Open Existing `.nukevol`** can import a vault created on another machine. NukeVault validates the container and copies it into the current managed vault directory before arming the unlock challenge. The transferred source file remains untouched and is outside the wipe scope; remove that extra copy separately if the laboratory exercise requires a single managed container.
 
 Cloud storage changes the destruction guarantee: iCloud, OneDrive, Dropbox, snapshots, and backup services may retain remote versions or deleted copies after the local `.nukevol` has been cryptographically nuked and overwritten. The persisted failed-attempt counter remains local to this installation, so a second computer does not inherit it reliably through cloud sync.
 

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/4rji/nuke-program/internal/vault"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
@@ -106,6 +107,46 @@ func (s *VaultService) ChooseStorageLocation() (StorageLocation, error) {
 		return current, nil
 	}
 	return s.setStorageLocation(selected)
+}
+
+func (s *VaultService) ImportVault() (vault.VaultInfo, error) {
+	s.mu.Lock()
+	if len(s.runtime) != 0 {
+		s.mu.Unlock()
+		return vault.VaultInfo{}, errors.New("finish the active vault challenge before importing another vault")
+	}
+	vaultDir := s.vaultDir
+	s.mu.Unlock()
+
+	selected, err := application.Get().Dialog.OpenFile().
+		SetTitle("Open NukeVault Container").
+		SetMessage("Select a .nukevol file to copy into the managed vault directory.").
+		SetDirectory(filepath.Dir(vaultDir)).
+		SetButtonText("Open Vault").
+		CanChooseDirectories(false).
+		CanChooseFiles(true).
+		AllowsOtherFileTypes(false).
+		ResolvesAliases(true).
+		AddFilter("NukeVault containers", "*.nukevol").
+		PromptForSingleSelection()
+	if err != nil {
+		return vault.VaultInfo{}, err
+	}
+	if selected == "" {
+		return vault.VaultInfo{}, nil
+	}
+	return s.importVault(selected)
+}
+
+func (s *VaultService) importVault(sourcePath string) (vault.VaultInfo, error) {
+	s.mu.Lock()
+	if len(s.runtime) != 0 {
+		s.mu.Unlock()
+		return vault.VaultInfo{}, errors.New("finish the active vault challenge before importing another vault")
+	}
+	vaultDir := s.vaultDir
+	s.mu.Unlock()
+	return vault.Import(vaultDir, sourcePath)
 }
 
 func (s *VaultService) setStorageLocation(selected string) (StorageLocation, error) {

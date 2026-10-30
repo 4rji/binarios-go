@@ -315,6 +315,92 @@ func ReadInfo(containerPath string) (VaultInfo, error) {
 	return VaultInfo{ID: header.ID, Name: header.Name, CreatedAt: header.CreatedAt, Size: info.Size()}, nil
 }
 
+// Import copies a validated NukeVault container into the managed vault
+// directory. The source is deliberately left untouched: callers may be
+// importing from removable media or a transfer folder outside the wipe scope.
+func Import(root, sourcePath string) (VaultInfo, error) {
+	if !strings.EqualFold(filepath.Ext(sourcePath), ".nukevol") {
+		return VaultInfo{}, errors.New("selected file must have a .nukevol extension")
+	}
+	source, sourceInfo, err := openRegular(sourcePath)
+	if err != nil {
+		return VaultInfo{}, err
+	}
+	defer source.Close()
+	if sourceInfo.Size() > maxContainerBytes {
+		return VaultInfo{}, ErrInvalidVault
+	}
+
+	info, err := ReadInfo(sourcePath)
+	if err != nil {
+		return VaultInfo{}, err
+	}
+	if err := os.MkdirAll(root, 0o700); err != nil {
+		return VaultInfo{}, fmt.Errorf("create vault directory: %w", err)
+	}
+	if err := os.Chmod(root, 0o700); err != nil {
+		return VaultInfo{}, fmt.Errorf("protect vault directory: %w", err)
+	}
+
+	destination := filepath.Join(root, info.ID+".nukevol")
+	if _, err := os.Lstat(destination); err == nil {
+		return VaultInfo{}, errors.New("this vault is already present in the managed directory")
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return VaultInfo{}, err
+	}
+
+	temporary, err := os.CreateTemp(root, ".import-*.tmp")
+	if err != nil {
+		return VaultInfo{}, err
+	}
+	temporaryPath := temporary.Name()
+	cleanup := true
+	defer func() {
+		_ = temporary.Close()
+		if cleanup {
+			_ = os.Remove(temporaryPath)
+		}
+	}()
+	if err := temporary.Chmod(0o600); err != nil {
+		return VaultInfo{}, err
+	}
+	written, err := io.Copy(temporary, io.LimitReader(source, maxContainerBytes+1))
+	if err != nil {
+		return VaultInfo{}, err
+	}
+	if written != sourceInfo.Size() || written > maxContainerBytes {
+		return VaultInfo{}, ErrInvalidVault
+	}
+	if err := temporary.Sync(); err != nil {
+		return VaultInfo{}, err
+	}
+	if err := temporary.Close(); err != nil {
+		return VaultInfo{}, err
+	}
+
+	imported, err := ReadInfo(temporaryPath)
+	if err != nil || imported.ID != info.ID {
+		return VaultInfo{}, ErrInvalidVault
+	}
+	// Link instead of rename so a concurrent import can never replace an
+	// existing managed vault with the same ID.
+	if err := os.Link(temporaryPath, destination); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return VaultInfo{}, errors.New("this vault is already present in the managed directory")
+		}
+		return VaultInfo{}, err
+	}
+	if err := os.Remove(temporaryPath); err != nil {
+		_ = os.Remove(destination)
+		return VaultInfo{}, err
+	}
+	cleanup = false
+	if err := syncDir(root); err != nil {
+		return VaultInfo{}, err
+	}
+	return ReadInfo(destination)
+}
+
 func readContainer(containerPath string, includePayload bool) (Header, []byte, error) {
 	f, info, err := openRegular(containerPath)
 	if err != nil {

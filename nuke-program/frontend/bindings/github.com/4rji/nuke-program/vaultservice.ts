@@ -33,12 +33,20 @@ export function GetStorageLocation(): $CancellablePromise<$models.StorageLocatio
     return $Call.ByID(105253831);
 }
 
+export function ImportVault(): $CancellablePromise<vault$0.VaultInfo> {
+    return $Call.ByID(1530378428);
+}
+
 export function ListVaults(): $CancellablePromise<vault$0.VaultInfo[] | null> {
     return $Call.ByID(2884903628);
 }
 
 export function LockVault(id: string): $CancellablePromise<void> {
     return $Call.ByID(3610361410, id);
+}
+
+export function LockVaultAndQuit(id: string): $CancellablePromise<void> {
+    return $Call.ByID(1748103724, id);
 }
 
 export function RevealVault(id: string): $CancellablePromise<void> {

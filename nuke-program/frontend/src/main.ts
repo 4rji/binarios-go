@@ -90,6 +90,10 @@ function renderSetup(error = "") {
 		<p class="warning storage-warning">${storageLocation.isCloud
 			? "Cloud location detected. Sync providers may retain versions or remote copies that a local wipe cannot erase."
 			: "Documents and cloud folders are supported. NukeVault creates a dedicated NukeVault subfolder."}</p>
+		<div class="button-row import-row">
+		  <button id="import-vault" class="secondary" type="button">OPEN EXISTING .NUKEVOL</button>
+		</div>
+		<p class="warning">Opening a vault imports a managed copy. The source file, including one transferred from another machine, is not erased by this app.</p>
         <form id="create-form" class="form-stack" autocomplete="off">
           <label>Vault name<input id="vault-name" maxlength="64" value="Evidence Lab" required /></label>
           <label>Unlock password<input id="unlock-password" type="password" minlength="8" required autocomplete="new-password" /></label>
@@ -104,6 +108,7 @@ function renderSetup(error = "") {
       </div>`);
     document.querySelector<HTMLFormElement>("#create-form")!.addEventListener("submit", createVault);
 	document.querySelector<HTMLButtonElement>("#choose-storage")!.addEventListener("click", chooseStorageLocation);
+	document.querySelector<HTMLButtonElement>("#import-vault")!.addEventListener("click", importVault);
 }
 
 async function chooseStorageLocation() {
@@ -113,6 +118,24 @@ async function chooseStorageLocation() {
 	try {
 		storageLocation = await VaultService.ChooseStorageLocation() as StorageLocation;
 		await boot();
+	} catch (error) {
+		renderSetup(errorMessage(error));
+	}
+}
+
+async function importVault() {
+	const button = document.querySelector<HTMLButtonElement>("#import-vault")!;
+	button.disabled = true;
+	button.textContent = "OPENING…";
+	try {
+		const imported = await VaultService.ImportVault() as VaultInfo;
+		if (!imported?.id) {
+			renderSetup();
+			return;
+		}
+		selectedVault = imported;
+		const state = await VaultService.ArmVault(imported.id) as UnlockState;
+		handleState(state);
 	} catch (error) {
 		renderSetup(errorMessage(error));
 	}
@@ -230,7 +253,7 @@ function renderMounted(state: UnlockState) {
         <p class="message">${escapeHTML(state.message || mount.message)}</p>
         <div class="button-row">
           <button id="reveal" class="primary">REVEAL FILES</button>
-          <button id="lock" class="secondary">LOCK VAULT</button>
+          <button id="lock" class="secondary">LOCK &amp; EXIT</button>
           <button id="destroy" class="destructive">DESTROY VAULT</button>
         </div>
       </div>`, "unlocked");
@@ -238,7 +261,14 @@ function renderMounted(state: UnlockState) {
         try { await VaultService.RevealVault(selectedVault!.id); } catch (error) { showInline(errorMessage(error)); }
     });
     document.querySelector<HTMLButtonElement>("#lock")!.addEventListener("click", async () => {
-        try { await VaultService.LockVault(selectedVault!.id); await boot(); } catch (error) { showInline(errorMessage(error)); }
+		const button = document.querySelector<HTMLButtonElement>("#lock")!;
+		button.disabled = true;
+		button.textContent = "LOCKING…";
+		try { await VaultService.LockVaultAndQuit(selectedVault!.id); } catch (error) {
+			button.disabled = false;
+			button.textContent = "LOCK & EXIT";
+			showInline(errorMessage(error));
+		}
     });
     document.querySelector<HTMLButtonElement>("#destroy")!.addEventListener("click", async () => {
 		renderDestroyConfirmation(state);

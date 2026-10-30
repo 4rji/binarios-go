@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/4rji/nuke-program/internal/vault"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 const defaultUnlockWindow = 10 * time.Second
@@ -66,6 +67,7 @@ type VaultService struct {
 	emit              func(string, any)
 	challengeDuration time.Duration
 	kdfParams         vault.KDFParams
+	quit              func()
 }
 
 func NewVaultService(dataRoot string) (*VaultService, error) {
@@ -111,6 +113,9 @@ func NewVaultService(dataRoot string) (*VaultService, error) {
 		mounter:           newPlatformMounter(),
 		challengeDuration: defaultUnlockWindow,
 		kdfParams:         vault.DefaultKDFParams,
+		quit: func() {
+			application.Get().Quit()
+		},
 	}, nil
 }
 
@@ -358,6 +363,14 @@ func (s *VaultService) LockVault(id string) error {
 	closeErr := session.Close()
 	s.emitEvent(VaultEvent{VaultID: id, Status: "locked", Message: "Vault locked."})
 	return errors.Join(unmountErr, closeErr)
+}
+
+func (s *VaultService) LockVaultAndQuit(id string) error {
+	if err := s.LockVault(id); err != nil {
+		return err
+	}
+	s.quit()
+	return nil
 }
 
 func (s *VaultService) DestroyVault(id string) (UnlockState, error) {

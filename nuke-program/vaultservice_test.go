@@ -62,6 +62,34 @@ func TestCorrectPasswordMountsAndPreservesVault(t *testing.T) {
 	}
 }
 
+func TestLockVaultAndQuitClosesSessionWithoutRearming(t *testing.T) {
+	service := newTestService(t)
+	quitCalled := false
+	service.quit = func() { quitCalled = true }
+	info, err := service.CreateVault("Evidence", "correct horse", "burn after reading")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.ArmVault(info.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SubmitPassword(info.ID, "correct horse"); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.LockVaultAndQuit(info.ID); err != nil {
+		t.Fatal(err)
+	}
+	if !quitCalled {
+		t.Fatal("application quit was not requested after locking")
+	}
+	service.mu.Lock()
+	_, stillActive := service.runtime[info.ID]
+	service.mu.Unlock()
+	if stillActive {
+		t.Fatal("vault was rearmed instead of being removed from runtime state")
+	}
+}
+
 func TestNukePasswordWipesImmediately(t *testing.T) {
 	service := newTestService(t)
 	info, err := service.CreateVault("Evidence", "correct horse", "burn after reading")
@@ -327,6 +355,48 @@ func TestCustomStorageLocationPersistsAndScopesWipe(t *testing.T) {
 	waitUntilRemoved(t, containerPath)
 	if _, err := os.Stat(sentinel); err != nil {
 		t.Fatalf("wipe escaped the dedicated custom directory: %v", err)
+	}
+}
+
+func TestImportVaultFromAnotherMachineCopiesIntoManagedDirectory(t *testing.T) {
+	sourceRoot := t.TempDir()
+	params := vault.KDFParams{Time: 1, MemoryKiB: 8 * 1024, Threads: 1}
+	created, err := vault.Create(sourceRoot, "Transferred Evidence", "correct horse", "burn after reading", params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourcePath, err := vault.FindPath(sourceRoot, created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	service := newTestService(t)
+	imported, err := service.importVault(sourcePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if imported.ID != created.ID || imported.Name != created.Name {
+		t.Fatalf("unexpected imported vault: %#v", imported)
+	}
+	managedPath, err := vault.FindPath(service.vaultDir, imported.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sameCleanPath(managedPath, sourcePath) {
+		t.Fatal("import used the external source directly instead of making a managed copy")
+	}
+	if _, err := os.Stat(sourcePath); err != nil {
+		t.Fatalf("import removed the source file: %v", err)
+	}
+	if _, err := service.ArmVault(imported.ID); err != nil {
+		t.Fatal(err)
+	}
+	state, err := service.SubmitPassword(imported.ID, "correct horse")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Status != "mounted" {
+		t.Fatalf("imported vault did not unlock: %#v", state)
 	}
 }
 
