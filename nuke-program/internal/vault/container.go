@@ -24,11 +24,9 @@ import (
 )
 
 const (
-	fileMagic         = "NUKEVLT1"
-	fileVersion       = 1
-	maxHeaderBytes    = 64 << 10
-	MaxPlaintextBytes = 256 << 20
-	maxContainerBytes = MaxPlaintextBytes + maxHeaderBytes + 1<<20
+	fileMagic      = "NUKEVLT1"
+	fileVersion    = 1
+	maxHeaderBytes = 64 << 10
 )
 
 var (
@@ -327,10 +325,6 @@ func Import(root, sourcePath string) (VaultInfo, error) {
 		return VaultInfo{}, err
 	}
 	defer source.Close()
-	if sourceInfo.Size() > maxContainerBytes {
-		return VaultInfo{}, ErrInvalidVault
-	}
-
 	info, err := ReadInfo(sourcePath)
 	if err != nil {
 		return VaultInfo{}, err
@@ -364,11 +358,11 @@ func Import(root, sourcePath string) (VaultInfo, error) {
 	if err := temporary.Chmod(0o600); err != nil {
 		return VaultInfo{}, err
 	}
-	written, err := io.Copy(temporary, io.LimitReader(source, maxContainerBytes+1))
+	written, err := io.Copy(temporary, source)
 	if err != nil {
 		return VaultInfo{}, err
 	}
-	if written != sourceInfo.Size() || written > maxContainerBytes {
+	if written != sourceInfo.Size() {
 		return VaultInfo{}, ErrInvalidVault
 	}
 	if err := temporary.Sync(); err != nil {
@@ -407,7 +401,7 @@ func readContainer(containerPath string, includePayload bool) (Header, []byte, e
 		return Header{}, nil, err
 	}
 	defer f.Close()
-	if info.Size() < int64(len(fileMagic)+4) || info.Size() > maxContainerBytes {
+	if info.Size() < int64(len(fileMagic)+4) {
 		return Header{}, nil, ErrInvalidVault
 	}
 	magic := make([]byte, len(fileMagic))
@@ -434,8 +428,8 @@ func readContainer(containerPath string, includePayload bool) (Header, []byte, e
 	if !includePayload {
 		return header, nil, nil
 	}
-	ciphertext, err := io.ReadAll(io.LimitReader(f, maxContainerBytes+1))
-	if err != nil || len(ciphertext) == 0 || len(ciphertext) > maxContainerBytes {
+	ciphertext, err := io.ReadAll(f)
+	if err != nil || len(ciphertext) == 0 {
 		return Header{}, nil, ErrInvalidVault
 	}
 	return header, ciphertext, nil
@@ -543,7 +537,7 @@ func marshalContainer(header Header, ciphertext []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(headerJSON) > maxHeaderBytes || len(ciphertext) == 0 || len(ciphertext) > maxContainerBytes {
+	if len(headerJSON) > maxHeaderBytes || len(ciphertext) == 0 {
 		return nil, ErrInvalidVault
 	}
 	var result bytes.Buffer

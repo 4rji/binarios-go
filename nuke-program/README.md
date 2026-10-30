@@ -52,7 +52,7 @@ The current laboratory format is intentionally application-specific:
 - Names, directories, metadata, and file contents exist only inside the encrypted payload while locked.
 - A random, per-session URL capability protects the loopback WebDAV endpoint.
 
-The decrypted filesystem is kept in memory. Successful WebDAV mutations are encrypted back into the container after each request. WebDAV requests may run concurrently so macOS Finder can complete the parallel metadata and capability requests it issues while streaming an external file upload; encrypted snapshot writes remain serialized. This first version limits a vault to 256 MiB and an individual WebDAV upload to 64 MiB.
+The decrypted filesystem is kept in memory. Successful WebDAV mutations are encrypted back into the container after each request. WebDAV requests may run concurrently so macOS Finder can complete the parallel metadata and capability requests it issues while streaming an external file upload; encrypted snapshot writes remain serialized. Individual WebDAV uploads are limited to 64 MiB.
 
 Before creating a vault, **Choose Folder** can select Documents, iCloud Drive, or another writable directory through the native macOS/Linux folder dialog. NukeVault creates a dedicated `NukeVault/` subdirectory inside the selected parent and remembers that location in its local settings. The wipe remains scoped to the selected dedicated directory and still refuses arbitrary files, directories, and devices.
 

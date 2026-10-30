@@ -59,7 +59,7 @@ function shell(content: string, tone = ""): string {
         </header>
         ${content}
         <footer>
-          <span>AES-256-GCM</span><span>ARGON2ID</span><span>LOCAL WEBDAV</span><span>LAB LIMIT 256 MiB</span>
+          <span>AES-256-GCM</span><span>ARGON2ID</span><span>LOCAL WEBDAV</span><span>NO VAULT SIZE LIMIT</span>
         </footer>
       </section>`;
 }

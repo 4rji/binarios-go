@@ -41,7 +41,7 @@ func Wipe(containerPath, root string, progress func(WipeProgress)) error {
 		return errors.New("wipe target changed during validation")
 	}
 	size := after.Size()
-	if size <= int64(len(fileMagic)+4) || size > maxContainerBytes {
+	if size <= int64(len(fileMagic)+4) {
 		return ErrInvalidVault
 	}
 

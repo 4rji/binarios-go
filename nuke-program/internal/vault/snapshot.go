@@ -52,16 +52,10 @@ func encodeSnapshot(snapshot Snapshot) ([]byte, error) {
 	if err := gob.NewEncoder(&result).Encode(snapshot); err != nil {
 		return nil, fmt.Errorf("encode snapshot: %w", err)
 	}
-	if result.Len() > MaxPlaintextBytes {
-		return nil, errors.New("vault exceeds the 256 MiB laboratory limit")
-	}
 	return result.Bytes(), nil
 }
 
 func decodeSnapshot(data []byte) (Snapshot, error) {
-	if len(data) > MaxPlaintextBytes {
-		return Snapshot{}, ErrInvalidVault
-	}
 	var snapshot Snapshot
 	decoder := gob.NewDecoder(bytes.NewReader(data))
 	if err := decoder.Decode(&snapshot); err != nil {
@@ -74,7 +68,6 @@ func decodeSnapshot(data []byte) (Snapshot, error) {
 }
 
 func validateSnapshot(snapshot Snapshot) error {
-	var total int64
 	seen := make(map[string]struct{}, len(snapshot.Entries))
 	for _, entry := range snapshot.Entries {
 		if !validEntryPath(entry.Path) {
@@ -86,10 +79,6 @@ func validateSnapshot(snapshot Snapshot) error {
 		seen[entry.Path] = struct{}{}
 		if entry.IsDir && len(entry.Data) != 0 {
 			return ErrInvalidVault
-		}
-		total += int64(len(entry.Data))
-		if total > MaxPlaintextBytes {
-			return errors.New("vault exceeds the 256 MiB laboratory limit")
 		}
 	}
 	return nil
@@ -151,7 +140,6 @@ func NewMemoryFS(snapshot Snapshot) (webdav.FileSystem, error) {
 
 func CaptureFS(ctx context.Context, fs webdav.FileSystem) (Snapshot, error) {
 	result := Snapshot{}
-	var total int64
 	var walk func(string) error
 	walk = func(dir string) error {
 		f, err := fs.OpenFile(ctx, dir, os.O_RDONLY, 0)
@@ -187,8 +175,7 @@ func CaptureFS(ctx context.Context, fs webdav.FileSystem) (Snapshot, error) {
 			if err != nil {
 				return err
 			}
-			remaining := MaxPlaintextBytes - total
-			data, readErr := io.ReadAll(io.LimitReader(file, remaining+1))
+			data, readErr := io.ReadAll(file)
 			closeErr := file.Close()
 			if readErr != nil {
 				return readErr
@@ -196,10 +183,6 @@ func CaptureFS(ctx context.Context, fs webdav.FileSystem) (Snapshot, error) {
 			if closeErr != nil {
 				return closeErr
 			}
-			if int64(len(data)) > remaining {
-				return errors.New("vault exceeds the 256 MiB laboratory limit")
-			}
-			total += int64(len(data))
 			entry.Data = data
 			result.Entries = append(result.Entries, entry)
 		}
