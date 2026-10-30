@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=NukeVault
+Comment=Encrypted disposable lab vault
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/nukevault %u
+Terminal=false
+Type=Application
+Icon=nukevault
+Categories=Utility;
+StartupWMClass=nukevault
+
+ 

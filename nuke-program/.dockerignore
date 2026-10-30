@@ -1,0 +1,8 @@
+.git
+.task
+bin
+frontend/dist
+frontend/node_modules
+build/android/gen
+build/ios/xcode
+*.nukevol
