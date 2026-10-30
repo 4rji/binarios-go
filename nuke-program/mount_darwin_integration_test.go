@@ -102,9 +102,12 @@ func TestDarwinWebDAVMount(t *testing.T) {
 	if string(data) != "replacement Finder-style copy" {
 		t.Fatalf("mounted cp replacement returned %q", data)
 	}
+	if err := session.Destroy(); err != nil {
+		t.Fatal(err)
+	}
 	unmountCtx, unmountCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer unmountCancel()
-	if err := (nativeMounter{}).Unmount(unmountCtx, mount); err != nil {
+	if err := (nativeMounter{}).ForceUnmount(unmountCtx, mount); err != nil {
 		t.Fatal(err)
 	}
 	unmounted = true

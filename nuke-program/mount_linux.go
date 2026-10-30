@@ -38,11 +38,24 @@ func (nativeMounter) Mount(ctx context.Context, name, url, dataRoot string) (Mou
 }
 
 func (nativeMounter) Unmount(ctx context.Context, mount MountResult) error {
+	return unmountLinux(ctx, mount, false)
+}
+
+func (nativeMounter) ForceUnmount(ctx context.Context, mount MountResult) error {
+	return unmountLinux(ctx, mount, true)
+}
+
+func unmountLinux(ctx context.Context, mount MountResult, force bool) error {
 	gio, err := exec.LookPath("gio")
 	if err != nil || mount.URL == "" {
 		return err
 	}
-	return exec.CommandContext(ctx, gio, "mount", "-u", mount.URL).Run()
+	args := []string{"mount", "-u"}
+	if force {
+		args = append(args, "-f")
+	}
+	args = append(args, mount.URL)
+	return exec.CommandContext(ctx, gio, args...).Run()
 }
 
 func (nativeMounter) Reveal(ctx context.Context, mount MountResult) error {

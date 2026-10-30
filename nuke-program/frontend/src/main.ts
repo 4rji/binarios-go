@@ -48,7 +48,7 @@ function shell(content: string, tone = ""): string {
             <p class="eyebrow">FORENSIC LAB / CONTROLLED DESTRUCTION</p>
             <h1>NUKE<span>VAULT</span></h1>
           </div>
-          <div class="platform-pill">v0.1.3 · NO FUSE</div>
+          <div class="platform-pill">v0.1.6 · NO FUSE</div>
         </header>
         ${content}
         <footer>
@@ -211,22 +211,39 @@ function renderMounted(state: UnlockState) {
         try { await VaultService.LockVault(selectedVault!.id); await boot(); } catch (error) { showInline(errorMessage(error)); }
     });
     document.querySelector<HTMLButtonElement>("#destroy")!.addEventListener("click", async () => {
-        const vault = selectedVault!;
-        if (!window.confirm(`Permanently destroy ${vault.name}? This cannot be undone.`)) return;
-        const phrase = `DELETE ${vault.name}`;
-        if (window.prompt(`Type ${phrase} to confirm:`) !== phrase) {
-            showInline("Destruction cancelled: confirmation phrase did not match.");
-            return;
-        }
-        document.querySelectorAll<HTMLButtonElement>(".button-row button").forEach((button) => button.disabled = true);
-        try {
-            const next = await VaultService.DestroyVault(vault.id) as UnlockState;
-            handleState(next);
-        } catch (error) {
-            showInline(errorMessage(error));
-            document.querySelectorAll<HTMLButtonElement>(".button-row button").forEach((button) => button.disabled = false);
-        }
+		renderDestroyConfirmation(state);
     });
+}
+
+function renderDestroyConfirmation(state: UnlockState) {
+	const vault = selectedVault!;
+	app.innerHTML = shell(`
+	  <div class="panel confirm-panel">
+		<div class="status-line danger"><span class="status-dot pulse"></span>MANUAL DESTRUCTION REQUESTED</div>
+		<h2>Destroy ${escapeHTML(vault.name)}?</h2>
+		<p class="lede">This immediately closes the mounted session, destroys the key material, overwrites the managed container, and deletes it.</p>
+		<p class="warning">This action cannot be undone.</p>
+		<p class="message">Confirm to close the mounted session and start the wipe.</p>
+		<div class="button-row">
+		  <button id="cancel-destroy" class="secondary" type="button">CANCEL</button>
+		  <button id="confirm-destroy" class="destructive" type="button">CONFIRM DESTROY</button>
+		</div>
+	  </div>`, "armed");
+
+	const confirm = document.querySelector<HTMLButtonElement>("#confirm-destroy")!;
+	document.querySelector<HTMLButtonElement>("#cancel-destroy")!.addEventListener("click", () => renderMounted(state));
+	confirm.addEventListener("click", async () => {
+		document.querySelectorAll<HTMLButtonElement>(".confirm-panel button").forEach((button) => button.disabled = true);
+		showInline("Closing the mounted session and starting the wipe…");
+		try {
+			const next = await VaultService.DestroyVault(vault.id) as UnlockState;
+			handleState(next);
+		} catch (error) {
+			showInline(errorMessage(error));
+			confirm.disabled = false;
+			document.querySelector<HTMLButtonElement>("#cancel-destroy")!.disabled = false;
+		}
+	});
 }
 
 function renderWipe(event: VaultEvent) {

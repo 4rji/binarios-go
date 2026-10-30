@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/net/webdav"
@@ -25,7 +26,7 @@ type Session struct {
 	listener      net.Listener
 	url           string
 	onError       func(error)
-	closed        bool
+	closed        atomic.Bool
 }
 
 func StartSession(containerPath string, unlocked *Unlocked, onError func(error)) (*Session, error) {
@@ -83,28 +84,50 @@ func (s *Session) URL() string {
 func (s *Session) Save() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.closed.Load() {
+		return errors.New("vault session closed")
+	}
 	return s.saveLocked()
 }
 
 func (s *Session) Close() error {
-	s.mu.Lock()
-	if s.closed {
-		s.mu.Unlock()
+	if !s.closed.CompareAndSwap(false, true) {
 		return nil
 	}
-	s.closed = true
-	s.mu.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
 	shutdownErr := s.server.Shutdown(ctx)
+	cancel()
+	var closeErr error
+	if shutdownErr != nil {
+		// Shutdown is graceful and can time out while a WebDAV client is in
+		// the middle of an upload. Close the active connection so normal lock
+		// cannot remain stuck behind that request forever.
+		closeErr = s.server.Close()
+	}
 
 	s.mu.Lock()
 	saveErr := s.saveLocked()
 	zero(s.masterKey)
 	s.masterKey = nil
 	s.mu.Unlock()
-	return errors.Join(shutdownErr, saveErr)
+	return errors.Join(shutdownErr, closeErr, saveErr)
+
+}
+
+// Destroy stops WebDAV immediately and discards the in-memory key without
+// saving another encrypted snapshot. The caller can then wipe the existing
+// managed container even when Finder has an unfinished upload.
+func (s *Session) Destroy() error {
+	if !s.closed.CompareAndSwap(false, true) {
+		return nil
+	}
+	closeErr := s.server.Close()
+	s.mu.Lock()
+	zero(s.masterKey)
+	s.masterKey = nil
+	s.mu.Unlock()
+	return closeErr
 }
 
 func (s *Session) wrapDAV(next http.Handler) http.Handler {
@@ -120,13 +143,10 @@ func (s *Session) wrapDAV(next http.Handler) http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		mutating := isMutatingMethod(r.Method)
-		s.mu.RLock()
-		if s.closed {
-			s.mu.RUnlock()
+		if s.closed.Load() {
 			http.Error(w, "vault session closed", http.StatusServiceUnavailable)
 			return
 		}
-		s.mu.RUnlock()
 
 		// Do not hold the session lock while serving WebDAV. Finder may wait for
 		// parallel OPTIONS, PROPFIND, or LOCK requests before it starts sending a
@@ -136,7 +156,10 @@ func (s *Session) wrapDAV(next http.Handler) http.Handler {
 		next.ServeHTTP(recorder, r)
 		if mutating && recorder.status < http.StatusBadRequest {
 			s.mu.Lock()
-			err := s.saveLocked()
+			var err error
+			if !s.closed.Load() {
+				err = s.saveLocked()
+			}
 			s.mu.Unlock()
 			if err != nil && s.onError != nil {
 				s.onError(err)

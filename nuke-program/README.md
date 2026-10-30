@@ -13,17 +13,17 @@ The unlock screen is enforced by the Go backend, not only by JavaScript:
 - three incorrect passwords start destruction; and
 - entering nothing for 10 seconds starts destruction.
 
-After an incorrect attempt, a new 10-second window begins. The timer starts only after the UI has loaded and explicitly arms the selected vault.
+After an incorrect attempt, a new 10-second window begins. Attempts and the absolute deadline are atomically persisted per vault. Closing and reopening NukeVault therefore preserves both `1/3` or `2/3` and the existing deadline; it does not grant another set of attempts or another 10 seconds. If the deadline expires while the app is closed, opening it starts the Nuke sequence immediately. A successful unlock clears the persisted challenge.
 
 The Nuke sequence:
 
-1. Stops the challenge and unmounts an active WebDAV session if necessary.
+1. Immediately closes the active WebDAV session, discards its in-memory key, and force-unmounts the managed volume if necessary.
 2. Overwrites the first MiB containing the encrypted key slots and header with cryptographically random data.
 3. Overwrites the complete container with random data.
 4. Overwrites the complete container with zeros.
 5. Flushes writes and deletes the container.
 
-After a successful unlock, the UI also offers **Destroy Vault**. It requires both a confirmation dialog and the exact phrase `DELETE <vault name>` before starting the same Nuke sequence. The backend refuses manual destruction unless that vault is currently unlocked.
+After a successful unlock, the UI also offers **Destroy Vault**. It opens an in-app warning with separate **Cancel** and **Confirm Destroy** buttons before starting the same Nuke sequence. The backend refuses manual destruction unless that vault is currently unlocked. Destruction closes the WebDAV server without saving an unfinished upload, so a stalled Finder copy cannot hold the wipe open.
 
 On APFS, copy-on-write filesystems, SSDs, snapshots, and backup systems, software overwriting cannot prove that every historical physical copy disappeared. Destroying the wrapped keys is the primary cryptographic Nuke; the two full overwrite passes are included for the laboratory comparison requested by this project.
 
@@ -68,6 +68,8 @@ Vaults are stored under:
 ~/Library/Application Support/NukeVault/vaults/
 ```
 
+Persistent challenge counters are stored under the adjacent private `challenges/` directory.
+
 ### Linux
 
 NukeVault uses `gio mount` when `gio` is installed. This normally exposes the WebDAV volume through the desktop's GVfs integration without FUSE. If `gio` is unavailable or blocked, the app reports the loopback WebDAV URL.
@@ -77,6 +79,8 @@ Vaults are normally stored under:
 ```text
 ~/.config/NukeVault/vaults/
 ```
+
+Persistent challenge counters are stored under `~/.config/NukeVault/challenges/`.
 
 ## Development
 
@@ -121,9 +125,12 @@ The suite verifies:
 - immediate Nuke-password detection;
 - Nuke after the third incorrect attempt;
 - Nuke after the challenge timeout;
+- persistence of failed attempts and the absolute deadline across process restarts;
+- immediate Nuke when a persisted deadline elapsed while the app was closed;
 - encrypted persistence of WebDAV writes; and
 - replacement of an existing file through WebDAV `MOVE`, including Finder-style destination URLs;
 - a streamed `PUT` that waits for a parallel `OPTIONS` response, matching Finder's external-upload behavior;
+- destruction of a session while a streamed `PUT` is deliberately stalled;
 - writing and replacing a file through a real macOS WebDAV mount; and
 - refusal to wipe a `.nukevol` file outside the managed directory.
 

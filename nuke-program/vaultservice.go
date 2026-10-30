@@ -58,6 +58,7 @@ type VaultService struct {
 	nukeWG            sync.WaitGroup
 	dataRoot          string
 	vaultDir          string
+	challengeDir      string
 	runtime           map[string]*runtimeVault
 	mounter           platformMounter
 	emit              func(string, any)
@@ -78,7 +79,11 @@ func NewVaultService(dataRoot string) (*VaultService, error) {
 		return nil, err
 	}
 	vaultDir := filepath.Join(dataRoot, "vaults")
+	challengeDir := filepath.Join(dataRoot, "challenges")
 	if err := os.MkdirAll(vaultDir, 0o700); err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(challengeDir, 0o700); err != nil {
 		return nil, err
 	}
 	if err := os.Chmod(dataRoot, 0o700); err != nil {
@@ -87,9 +92,13 @@ func NewVaultService(dataRoot string) (*VaultService, error) {
 	if err := os.Chmod(vaultDir, 0o700); err != nil {
 		return nil, err
 	}
+	if err := os.Chmod(challengeDir, 0o700); err != nil {
+		return nil, err
+	}
 	return &VaultService{
 		dataRoot:          dataRoot,
 		vaultDir:          vaultDir,
+		challengeDir:      challengeDir,
 		runtime:           make(map[string]*runtimeVault),
 		mounter:           newPlatformMounter(),
 		challengeDuration: defaultUnlockWindow,
@@ -126,17 +135,46 @@ func (s *VaultService) ArmVault(id string) (UnlockState, error) {
 		s.mu.Unlock()
 		return state, nil
 	}
+	persisted, found, err := s.loadChallengeState(id)
+	if err != nil {
+		s.mu.Unlock()
+		return UnlockState{}, fmt.Errorf("load persisted challenge: %w", err)
+	}
+	attempts := 0
+	deadline := time.Now().Add(s.challengeDuration)
+	message := "Challenge armed. Enter a password within 10 seconds."
+	if found {
+		attempts = persisted.Attempts
+		deadline = time.UnixMilli(persisted.Deadline)
+		message = fmt.Sprintf("Challenge resumed with %d of 3 failed attempts. Existing deadline preserved.", attempts)
+	} else if err := s.saveChallengeState(id, attempts, deadline); err != nil {
+		s.mu.Unlock()
+		return UnlockState{}, fmt.Errorf("persist challenge: %w", err)
+	}
 	runtimeState := &runtimeVault{
 		path:     containerPath,
 		name:     info.Name,
 		status:   "armed",
-		deadline: time.Now().Add(s.challengeDuration),
+		attempts: attempts,
+		deadline: deadline,
+	}
+	s.runtime[id] = runtimeState
+	if attempts >= 3 || !deadline.After(time.Now()) {
+		reason := "The persisted challenge deadline expired while NukeVault was closed."
+		if attempts >= 3 {
+			reason = "The persisted challenge already contains three incorrect attempts."
+		}
+		job := s.claimNukeLocked(id, reason)
+		s.mu.Unlock()
+		if job != nil {
+			go s.runNuke(job)
+		}
+		return UnlockState{VaultID: id, Status: "nuking", Attempts: attempts, Message: reason + " Nuke started."}, nil
 	}
 	runtimeState.timer = s.newChallengeTimer(id, runtimeState.deadline)
-	s.runtime[id] = runtimeState
-	state := stateFromRuntime(id, runtimeState, "Challenge armed. Enter a password within 10 seconds.")
+	state := stateFromRuntime(id, runtimeState, message)
 	s.mu.Unlock()
-	s.emitEvent(VaultEvent{VaultID: id, Status: "armed", Message: state.Message, Deadline: state.Deadline})
+	s.emitEvent(VaultEvent{VaultID: id, Status: "armed", Message: state.Message, Attempts: attempts, Deadline: state.Deadline})
 	return state, nil
 }
 
@@ -171,6 +209,18 @@ func (s *VaultService) SubmitPassword(id, password string) (UnlockState, error) 
 		}
 		runtimeState.attempts++
 		attempts := runtimeState.attempts
+		nextDeadline := time.Now().Add(s.challengeDuration)
+		if attempts >= 3 {
+			nextDeadline = time.Now()
+		}
+		if persistErr := s.saveChallengeState(id, attempts, nextDeadline); persistErr != nil {
+			job := s.claimNukeLocked(id, "The failed-attempt counter could not be persisted safely.")
+			s.mu.Unlock()
+			if job != nil {
+				go s.runNuke(job)
+			}
+			return UnlockState{VaultID: id, Status: "nuking", Attempts: attempts, Message: "Challenge persistence failed. Nuke started."}, nil
+		}
 		if attempts >= 3 {
 			job := s.claimNukeLocked(id, "Three incorrect passwords were entered.")
 			s.mu.Unlock()
@@ -181,7 +231,7 @@ func (s *VaultService) SubmitPassword(id, password string) (UnlockState, error) 
 			return UnlockState{VaultID: id, Status: "nuking", Attempts: attempts, Message: "Third failure. Nuke started."}, nil
 		}
 		runtimeState.status = "armed"
-		runtimeState.deadline = time.Now().Add(s.challengeDuration)
+		runtimeState.deadline = nextDeadline
 		runtimeState.timer = s.newChallengeTimer(id, runtimeState.deadline)
 		state := stateFromRuntime(id, runtimeState, fmt.Sprintf("Incorrect password. Attempt %d of 3.", attempts))
 		s.mu.Unlock()
@@ -203,6 +253,13 @@ func (s *VaultService) SubmitPassword(id, password string) (UnlockState, error) 
 		return UnlockState{}, errors.New("vault challenge ended")
 	}
 	s.mu.Unlock()
+	if err := s.clearChallengeState(id); err != nil {
+		s.mu.Lock()
+		delete(s.runtime, id)
+		s.mu.Unlock()
+		clear(unlocked.MasterKey)
+		return UnlockState{}, fmt.Errorf("clear persisted challenge after successful authentication: %w", err)
+	}
 
 	session, err := vault.StartSession(containerPath, unlocked, func(sessionErr error) {
 		s.emitEvent(VaultEvent{VaultID: id, Status: "error", Message: sessionErr.Error()})
@@ -377,12 +434,14 @@ func (s *VaultService) claimNukeLocked(id, reason string) *nukeJob {
 
 func (s *VaultService) runNuke(job *nukeJob) {
 	defer s.nukeWG.Done()
-	s.emitEvent(VaultEvent{VaultID: job.id, Status: "wiping", Message: job.reason, Phase: "unmounting"})
+	s.emitEvent(VaultEvent{VaultID: job.id, Status: "wiping", Message: job.reason, Phase: "closing-session"})
 	if job.session != nil {
+		// Destruction must not wait for or persist an unfinished WebDAV upload.
+		// Cut the local server and discard the in-memory key before unmounting.
+		_ = job.session.Destroy()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		_ = s.mounter.Unmount(ctx, job.mount)
+		_ = s.mounter.ForceUnmount(ctx, job.mount)
 		cancel()
-		_ = job.session.Close()
 	}
 	err := vault.Wipe(job.containerPath, s.vaultDir, func(update vault.WipeProgress) {
 		s.emitEvent(VaultEvent{VaultID: job.id, Status: "wiping", Message: job.reason, Phase: update.Phase, Percent: update.Percent})
@@ -396,6 +455,7 @@ func (s *VaultService) runNuke(job *nukeJob) {
 		s.emitEvent(VaultEvent{VaultID: job.id, Status: "error", Message: err.Error()})
 		return
 	}
+	_ = s.clearChallengeState(job.id)
 	s.emitEvent(VaultEvent{VaultID: job.id, Status: "destroyed", Message: "The container was cryptographically nuked, overwritten, and deleted.", Phase: "deleted", Percent: 100})
 }
 

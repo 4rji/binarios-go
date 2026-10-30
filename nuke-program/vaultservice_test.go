@@ -16,8 +16,9 @@ func (testMounter) Mount(ctx context.Context, name, url, dataRoot string) (Mount
 	return MountResult{URL: url, MountPoint: "/lab/" + safeMountName(name), Automatic: true, Message: "test mount"}, nil
 }
 
-func (testMounter) Unmount(ctx context.Context, mount MountResult) error { return nil }
-func (testMounter) Reveal(ctx context.Context, mount MountResult) error  { return nil }
+func (testMounter) Unmount(ctx context.Context, mount MountResult) error      { return nil }
+func (testMounter) ForceUnmount(ctx context.Context, mount MountResult) error { return nil }
+func (testMounter) Reveal(ctx context.Context, mount MountResult) error       { return nil }
 
 func newTestService(t *testing.T) *VaultService {
 	t.Helper()
@@ -157,6 +158,107 @@ func TestTimeoutWipes(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitUntilRemoved(t, containerPath)
+}
+
+func TestChallengeAttemptsAndDeadlineSurviveRestart(t *testing.T) {
+	root := t.TempDir()
+	first, err := NewVaultService(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first.kdfParams = vault.KDFParams{Time: 1, MemoryKiB: 8 * 1024, Threads: 1}
+	first.challengeDuration = 5 * time.Second
+	first.mounter = testMounter{}
+	info, err := first.CreateVault("Evidence", "correct horse", "burn after reading")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := first.ArmVault(info.ID); err != nil {
+		t.Fatal(err)
+	}
+	failed, err := first.SubmitPassword(info.ID, "definitely wrong")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if failed.Attempts != 1 {
+		t.Fatalf("unexpected first service state: %#v", failed)
+	}
+	if err := first.ServiceShutdown(); err != nil {
+		t.Fatal(err)
+	}
+
+	second, err := NewVaultService(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second.kdfParams = vault.KDFParams{Time: 1, MemoryKiB: 8 * 1024, Threads: 1}
+	second.challengeDuration = 5 * time.Second
+	second.mounter = testMounter{}
+	t.Cleanup(func() { _ = second.ServiceShutdown() })
+	resumed, err := second.ArmVault(info.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resumed.Attempts != 1 || resumed.Deadline != failed.Deadline {
+		t.Fatalf("restart reset the challenge: before=%#v after=%#v", failed, resumed)
+	}
+	mounted, err := second.SubmitPassword(info.ID, "correct horse")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mounted.Status != "mounted" {
+		t.Fatalf("correct password did not mount: %#v", mounted)
+	}
+	if _, found, err := second.loadChallengeState(info.ID); err != nil || found {
+		t.Fatalf("successful unlock did not clear persisted challenge: found=%v err=%v", found, err)
+	}
+}
+
+func TestChallengeDeadlineExpiresWhileAppIsClosed(t *testing.T) {
+	root := t.TempDir()
+	first, err := NewVaultService(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first.kdfParams = vault.KDFParams{Time: 1, MemoryKiB: 8 * 1024, Threads: 1}
+	first.challengeDuration = 80 * time.Millisecond
+	first.mounter = testMounter{}
+	info, err := first.CreateVault("Evidence", "correct horse", "burn after reading")
+	if err != nil {
+		t.Fatal(err)
+	}
+	containerPath, _ := vault.FindPath(first.vaultDir, info.ID)
+	armed, err := first.ArmVault(info.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := first.ServiceShutdown(); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.UnixMilli(armed.Deadline)
+	if wait := time.Until(deadline) + 25*time.Millisecond; wait > 0 {
+		time.Sleep(wait)
+	}
+
+	second, err := NewVaultService(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second.kdfParams = vault.KDFParams{Time: 1, MemoryKiB: 8 * 1024, Threads: 1}
+	second.challengeDuration = 80 * time.Millisecond
+	second.mounter = testMounter{}
+	t.Cleanup(func() { _ = second.ServiceShutdown() })
+	state, err := second.ArmVault(info.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Status != "nuking" {
+		t.Fatalf("expired persisted deadline was reset: %#v", state)
+	}
+	waitUntilRemoved(t, containerPath)
+	if _, found, err := second.loadChallengeState(info.ID); err != nil || found {
+		t.Fatalf("completed Nuke left persisted challenge state: found=%v err=%v", found, err)
+	}
 }
 
 func TestSupersededDeadlineCannotWipeNewChallenge(t *testing.T) {

@@ -48,5 +48,6 @@ func joinMountErrors(primary, secondary error) error {
 type platformMounter interface {
 	Mount(context.Context, string, string, string) (MountResult, error)
 	Unmount(context.Context, MountResult) error
+	ForceUnmount(context.Context, MountResult) error
 	Reveal(context.Context, MountResult) error
 }

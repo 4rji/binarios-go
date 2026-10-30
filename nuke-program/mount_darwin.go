@@ -42,10 +42,22 @@ func (nativeMounter) Mount(ctx context.Context, name, url, dataRoot string) (Mou
 }
 
 func (nativeMounter) Unmount(ctx context.Context, mount MountResult) error {
+	return unmountDarwin(ctx, mount, false)
+}
+
+func (nativeMounter) ForceUnmount(ctx context.Context, mount MountResult) error {
+	return unmountDarwin(ctx, mount, true)
+}
+
+func unmountDarwin(ctx context.Context, mount MountResult, force bool) error {
 	if mount.MountPoint == "" {
 		return nil
 	}
-	command := exec.CommandContext(ctx, "/sbin/umount", mount.MountPoint)
+	args := []string{mount.MountPoint}
+	if force {
+		args = append([]string{"-f"}, args...)
+	}
+	command := exec.CommandContext(ctx, "/sbin/umount", args...)
 	output, commandErr := command.CombinedOutput()
 	removeErr := os.Remove(mount.MountPoint)
 	if commandErr != nil {

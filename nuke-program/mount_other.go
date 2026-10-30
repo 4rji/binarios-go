@@ -15,7 +15,8 @@ func (nativeMounter) Mount(ctx context.Context, name, url, dataRoot string) (Mou
 	return MountResult{URL: url, Message: "No automatic WebDAV mounter is available on this platform."}, errors.New("unsupported platform")
 }
 
-func (nativeMounter) Unmount(ctx context.Context, mount MountResult) error { return nil }
+func (nativeMounter) Unmount(ctx context.Context, mount MountResult) error      { return nil }
+func (nativeMounter) ForceUnmount(ctx context.Context, mount MountResult) error { return nil }
 
 func (nativeMounter) Reveal(ctx context.Context, mount MountResult) error {
 	return errors.New("unsupported platform")

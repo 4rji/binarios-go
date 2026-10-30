@@ -218,6 +218,63 @@ func TestWebDAVUploadDoesNotBlockParallelOptions(t *testing.T) {
 	}
 }
 
+func TestDestroySessionDoesNotWaitForStalledUpload(t *testing.T) {
+	root := t.TempDir()
+	info, err := Create(root, "Destroy WebDAV", "correct horse", "burn after reading", testKDF)
+	if err != nil {
+		t.Fatal(err)
+	}
+	containerPath, _ := FindPath(root, info.ID)
+	unlocked, err := Authenticate(containerPath, "correct horse")
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := StartSession(containerPath, unlocked, func(err error) { t.Errorf("session error: %v", err) })
+	clear(unlocked.MasterKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+
+	body := &gatedReader{started: make(chan struct{}), release: make(chan struct{}), data: []byte("unfinished upload")}
+	request, err := http.NewRequest(http.MethodPut, session.URL()+"stalled.pdf", body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	putDone := make(chan error, 1)
+	go func() {
+		response, requestErr := http.DefaultClient.Do(request)
+		if response != nil {
+			response.Body.Close()
+		}
+		putDone <- requestErr
+	}()
+
+	select {
+	case <-body.started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("PUT body was never requested")
+	}
+
+	destroyDone := make(chan error, 1)
+	go func() { destroyDone <- session.Destroy() }()
+	select {
+	case err := <-destroyDone:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("session destruction waited for a stalled upload")
+	}
+
+	close(body.release)
+	select {
+	case <-putDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("stalled PUT did not exit after session destruction")
+	}
+}
+
 func TestWipeOnlyManagedContainer(t *testing.T) {
 	root := t.TempDir()
 	info, err := Create(root, "Disposable", "correct horse", "burn after reading", testKDF)
