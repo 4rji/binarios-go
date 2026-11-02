@@ -28,12 +28,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private var dimmer: Dimmer!
     private var statusItem: NSStatusItem!
-    private let menu = NSMenu()
-    private let iconMenu = NSMenu()
-    private let toggleItem = NSMenuItem(title: "Enabled", action: #selector(toggle), keyEquivalent: "1")
-    private let dimItem = NSMenuItem(title: "Dim Background Windows", action: #selector(toggleDim), keyEquivalent: "")
-    private let blurItem = NSMenuItem(title: "Blur Background Windows", action: #selector(toggleBlur), keyEquivalent: "")
-    private let loginItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
 
     private var iconIndex: Int {
         let index = UserDefaults.standard.integer(forKey: "icon")
@@ -54,20 +48,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         HotKey.register()
         NotificationCenter.default.addObserver(self, selector: #selector(toggle), name: .hotKeyPressed, object: nil)
 
-        buildMenu()
         updateIcon()
     }
 
-    private func buildMenu() {
-        toggleItem.target = self
+    /// Built fresh on every open, so a control left mid-drag can't stay stuck.
+    private func makeMenu() -> NSMenu {
+        let toggleItem = makeItem("Enabled", #selector(toggle), isOn: dimmer.isEnabled)
+        toggleItem.keyEquivalent = "1"
         toggleItem.keyEquivalentModifierMask = [.command, .shift]
-        dimItem.target = self
-        blurItem.target = self
-        loginItem.target = self
 
+        let iconMenu = NSMenu()
         for (index, choice) in Self.iconChoices.enumerated() {
-            let item = NSMenuItem(title: choice.name, action: #selector(iconChosen(_:)), keyEquivalent: "")
-            item.target = self
+            let item = makeItem(choice.name, #selector(iconChosen(_:)), isOn: index == iconIndex)
             item.tag = index
             item.image = NSImage(systemSymbolName: choice.on, accessibilityDescription: choice.name)
             iconMenu.addItem(item)
@@ -75,58 +67,59 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let iconItem = NSMenuItem(title: "Menu Bar Icon", action: nil, keyEquivalent: "")
         iconItem.submenu = iconMenu
 
+        let menu = NSMenu()
+        menu.delegate = self
         menu.addItem(toggleItem)
         menu.addItem(.separator())
-        menu.addItem(dimItem)
-        menu.addItem(blurItem)
+        menu.addItem(makeItem("Dim Background Windows", #selector(toggleDim), isOn: dimmer.isDimEnabled))
+        menu.addItem(makeItem("Blur Background Windows", #selector(toggleBlur), isOn: dimmer.isBlurEnabled))
         menu.addItem(.separator())
-        menu.addItem(makeLabelItem("Dim Intensity"))
-        menu.addItem(makeSliderItem(value: dimmer.intensity, range: 0.1...0.9, action: #selector(intensityChanged(_:))))
-        menu.addItem(makeLabelItem("Blur Intensity"))
-        menu.addItem(makeSliderItem(value: dimmer.blurIntensity, range: 0.1...1.0, action: #selector(blurIntensityChanged(_:))))
+        menu.addItem(makeStepsItem("Dim Intensity", value: dimmer.intensity, percents: Array(stride(from: 10, through: 90, by: 10)), action: #selector(intensityChosen(_:))))
+        menu.addItem(makeStepsItem("Blur Intensity", value: dimmer.blurIntensity, percents: Array(stride(from: 10, through: 100, by: 10)), action: #selector(blurIntensityChosen(_:))))
         menu.addItem(.separator())
         menu.addItem(iconItem)
-        menu.addItem(loginItem)
+        menu.addItem(makeItem("Launch at Login", #selector(toggleLaunchAtLogin), isOn: SMAppService.mainApp.status == .enabled))
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Blurzel", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        menu.delegate = self
+        return menu
     }
 
-    private func makeLabelItem(_ title: String) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-        item.isEnabled = false
+    private func makeItem(_ title: String, _ action: Selector, isOn: Bool) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+        item.target = self
+        item.state = isOn ? .on : .off
         return item
     }
 
-    private func makeSliderItem(value: Double, range: ClosedRange<Double>, action: Selector) -> NSMenuItem {
-        let slider = NSSlider(value: value, minValue: range.lowerBound, maxValue: range.upperBound, target: self, action: action)
-        slider.frame = NSRect(x: 20, y: 2, width: 180, height: 24)
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: 220, height: 28))
-        container.addSubview(slider)
-        let item = NSMenuItem()
-        item.view = container
-        return item
-    }
-
-    func menuNeedsUpdate(_ menu: NSMenu) {
-        toggleItem.state = dimmer.isEnabled ? .on : .off
-        dimItem.state = dimmer.isDimEnabled ? .on : .off
-        blurItem.state = dimmer.isBlurEnabled ? .on : .off
-        loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
-        for item in iconMenu.items {
-            item.state = item.tag == iconIndex ? .on : .off
+    /// A submenu of percentage steps. Plain items instead of an NSSlider view, which can
+    /// freeze while dragged inside a menu on recent macOS.
+    private func makeStepsItem(_ title: String, value: Double, percents: [Int], action: Selector) -> NSMenuItem {
+        let current = Int((value * 100).rounded())
+        let nearest = percents.min { abs($0 - current) < abs($1 - current) }
+        let submenu = NSMenu()
+        for percent in percents {
+            let item = makeItem("\(percent)%", action, isOn: percent == nearest)
+            item.tag = percent
+            submenu.addItem(item)
         }
+        let item = NSMenuItem(title: "\(title) (\(current)%)", action: nil, keyEquivalent: "")
+        item.submenu = submenu
+        return item
     }
 
     @objc private func statusItemClicked() {
         let event = NSApp.currentEvent
         if event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true {
-            statusItem.menu = menu
+            statusItem.menu = makeMenu()
             statusItem.button?.performClick(nil)
-            statusItem.menu = nil
         } else {
             toggle()
         }
+    }
+
+    // Detach only once the menu has really closed, so left-click goes back to toggling.
+    func menuDidClose(_ menu: NSMenu) {
+        statusItem.menu = nil
     }
 
     @objc private func toggle() {
@@ -142,12 +135,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         dimmer.isBlurEnabled.toggle()
     }
 
-    @objc private func intensityChanged(_ sender: NSSlider) {
-        dimmer.intensity = sender.doubleValue
+    @objc private func intensityChosen(_ sender: NSMenuItem) {
+        dimmer.intensity = Double(sender.tag) / 100
     }
 
-    @objc private func blurIntensityChanged(_ sender: NSSlider) {
-        dimmer.blurIntensity = sender.doubleValue
+    @objc private func blurIntensityChosen(_ sender: NSMenuItem) {
+        dimmer.blurIntensity = Double(sender.tag) / 100
     }
 
     @objc private func iconChosen(_ sender: NSMenuItem) {
