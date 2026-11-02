@@ -16,6 +16,13 @@ final class Dimmer: NSObject {
         }
     }
 
+    var isDimEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(isDimEnabled, forKey: "dim")
+            applyStyle()
+        }
+    }
+
     var intensity: Double {
         didSet {
             UserDefaults.standard.set(intensity, forKey: "intensity")
@@ -31,8 +38,9 @@ final class Dimmer: NSObject {
     }
 
     override init() {
-        UserDefaults.standard.register(defaults: ["enabled": true, "intensity": 0.5, "blur": false])
+        UserDefaults.standard.register(defaults: ["enabled": true, "dim": true, "intensity": 0.5, "blur": false])
         isEnabled = UserDefaults.standard.bool(forKey: "enabled")
+        isDimEnabled = UserDefaults.standard.bool(forKey: "dim")
         intensity = UserDefaults.standard.double(forKey: "intensity")
         isBlurEnabled = UserDefaults.standard.bool(forKey: "blur")
         super.init()
@@ -66,7 +74,7 @@ final class Dimmer: NSObject {
     }
 
     private func applyStyle() {
-        overlays.forEach { $0.apply(intensity: intensity, blur: isBlurEnabled) }
+        overlays.forEach { $0.apply(dim: isDimEnabled ? intensity : 0, blur: isBlurEnabled) }
     }
 
     @objc private func refresh() {
@@ -130,8 +138,8 @@ private final class Overlay {
         window.contentView = container
     }
 
-    func apply(intensity: Double, blur: Bool) {
-        dimView.layer?.backgroundColor = NSColor.black.withAlphaComponent(intensity).cgColor
+    func apply(dim: Double, blur: Bool) {
+        dimView.layer?.backgroundColor = NSColor.black.withAlphaComponent(dim).cgColor
         blurView.isHidden = !blur
     }
 }

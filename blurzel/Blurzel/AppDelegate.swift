@@ -16,7 +16,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var dimmer: Dimmer!
     private var statusItem: NSStatusItem!
     private let menu = NSMenu()
-    private let toggleItem = NSMenuItem(title: "Dim Background Windows", action: #selector(toggle), keyEquivalent: "1")
+    private let toggleItem = NSMenuItem(title: "Enabled", action: #selector(toggle), keyEquivalent: "1")
+    private let dimItem = NSMenuItem(title: "Dim Background Windows", action: #selector(toggleDim), keyEquivalent: "")
     private let blurItem = NSMenuItem(title: "Blur Background Windows", action: #selector(toggleBlur), keyEquivalent: "")
     private let loginItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
 
@@ -41,6 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func buildMenu() {
         toggleItem.target = self
         toggleItem.keyEquivalentModifierMask = [.command, .shift]
+        dimItem.target = self
         blurItem.target = self
         loginItem.target = self
 
@@ -48,6 +50,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         intensityLabel.isEnabled = false
 
         menu.addItem(toggleItem)
+        menu.addItem(.separator())
+        menu.addItem(dimItem)
         menu.addItem(blurItem)
         menu.addItem(.separator())
         menu.addItem(intensityLabel)
@@ -71,6 +75,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         toggleItem.state = dimmer.isEnabled ? .on : .off
+        dimItem.state = dimmer.isDimEnabled ? .on : .off
         blurItem.state = dimmer.isBlurEnabled ? .on : .off
         loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
     }
@@ -89,6 +94,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func toggle() {
         dimmer.isEnabled.toggle()
         updateIcon()
+    }
+
+    @objc private func toggleDim() {
+        dimmer.isDimEnabled.toggle()
     }
 
     @objc private func toggleBlur() {
