@@ -1,7 +1,7 @@
 import AppKit
 import ServiceManagement
 
-/// Menu bar icon: left-click toggles dimming, right-click opens the options menu.
+/// Menu bar icon: left-click toggles the effect, right-click opens the options menu.
 @main
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
@@ -13,13 +13,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         withExtendedLifetime(delegate) { app.run() }
     }
 
+    /// Menu bar icon styles: SF Symbol shown while enabled / while disabled.
+    private static let iconChoices: [(name: String, on: String, off: String)] = [
+        ("Half Circle", "circle.lefthalf.filled", "circle"),
+        ("Moon", "moon.fill", "moon"),
+        ("Eye", "eye.slash.fill", "eye"),
+        ("Brightness", "sun.min.fill", "sun.max"),
+        ("Haze", "aqi.medium", "aqi.low"),
+        ("Drop", "drop.fill", "drop"),
+        ("Layers", "square.2.layers.3d.top.filled", "square.2.layers.3d"),
+        ("Window", "macwindow.on.rectangle", "macwindow"),
+        ("Lock", "lock.fill", "lock.open"),
+    ]
+
     private var dimmer: Dimmer!
     private var statusItem: NSStatusItem!
     private let menu = NSMenu()
+    private let iconMenu = NSMenu()
     private let toggleItem = NSMenuItem(title: "Enabled", action: #selector(toggle), keyEquivalent: "1")
     private let dimItem = NSMenuItem(title: "Dim Background Windows", action: #selector(toggleDim), keyEquivalent: "")
     private let blurItem = NSMenuItem(title: "Blur Background Windows", action: #selector(toggleBlur), keyEquivalent: "")
     private let loginItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
+
+    private var iconIndex: Int {
+        let index = UserDefaults.standard.integer(forKey: "icon")
+        return Self.iconChoices.indices.contains(index) ? index : 0
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         dimmer = Dimmer()
@@ -46,25 +65,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         blurItem.target = self
         loginItem.target = self
 
-        let intensityLabel = NSMenuItem(title: "Intensity", action: nil, keyEquivalent: "")
-        intensityLabel.isEnabled = false
+        for (index, choice) in Self.iconChoices.enumerated() {
+            let item = NSMenuItem(title: choice.name, action: #selector(iconChosen(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = index
+            item.image = NSImage(systemSymbolName: choice.on, accessibilityDescription: choice.name)
+            iconMenu.addItem(item)
+        }
+        let iconItem = NSMenuItem(title: "Menu Bar Icon", action: nil, keyEquivalent: "")
+        iconItem.submenu = iconMenu
 
         menu.addItem(toggleItem)
         menu.addItem(.separator())
         menu.addItem(dimItem)
         menu.addItem(blurItem)
         menu.addItem(.separator())
-        menu.addItem(intensityLabel)
-        menu.addItem(makeSliderItem())
+        menu.addItem(makeLabelItem("Dim Intensity"))
+        menu.addItem(makeSliderItem(value: dimmer.intensity, range: 0.1...0.9, action: #selector(intensityChanged(_:))))
+        menu.addItem(makeLabelItem("Blur Intensity"))
+        menu.addItem(makeSliderItem(value: dimmer.blurIntensity, range: 0.1...1.0, action: #selector(blurIntensityChanged(_:))))
         menu.addItem(.separator())
+        menu.addItem(iconItem)
         menu.addItem(loginItem)
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Blurzel", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.delegate = self
     }
 
-    private func makeSliderItem() -> NSMenuItem {
-        let slider = NSSlider(value: dimmer.intensity, minValue: 0.1, maxValue: 0.9, target: self, action: #selector(intensityChanged(_:)))
+    private func makeLabelItem(_ title: String) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.isEnabled = false
+        return item
+    }
+
+    private func makeSliderItem(value: Double, range: ClosedRange<Double>, action: Selector) -> NSMenuItem {
+        let slider = NSSlider(value: value, minValue: range.lowerBound, maxValue: range.upperBound, target: self, action: action)
         slider.frame = NSRect(x: 20, y: 2, width: 180, height: 24)
         let container = NSView(frame: NSRect(x: 0, y: 0, width: 220, height: 28))
         container.addSubview(slider)
@@ -78,6 +113,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         dimItem.state = dimmer.isDimEnabled ? .on : .off
         blurItem.state = dimmer.isBlurEnabled ? .on : .off
         loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        for item in iconMenu.items {
+            item.state = item.tag == iconIndex ? .on : .off
+        }
     }
 
     @objc private func statusItemClicked() {
@@ -108,6 +146,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         dimmer.intensity = sender.doubleValue
     }
 
+    @objc private func blurIntensityChanged(_ sender: NSSlider) {
+        dimmer.blurIntensity = sender.doubleValue
+    }
+
+    @objc private func iconChosen(_ sender: NSMenuItem) {
+        UserDefaults.standard.set(sender.tag, forKey: "icon")
+        updateIcon()
+    }
+
     @objc private func toggleLaunchAtLogin() {
         let service = SMAppService.mainApp
         do {
@@ -122,7 +169,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func updateIcon() {
-        let symbol = dimmer.isEnabled ? "circle.lefthalf.filled" : "circle"
+        let choice = Self.iconChoices[iconIndex]
+        let symbol = dimmer.isEnabled ? choice.on : choice.off
         statusItem.button?.image = NSImage(systemSymbolName: symbol, accessibilityDescription: "Blurzel")
     }
 }

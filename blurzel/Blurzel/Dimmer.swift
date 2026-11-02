@@ -37,12 +37,20 @@ final class Dimmer: NSObject {
         }
     }
 
+    var blurIntensity: Double {
+        didSet {
+            UserDefaults.standard.set(blurIntensity, forKey: "blurIntensity")
+            applyStyle()
+        }
+    }
+
     override init() {
-        UserDefaults.standard.register(defaults: ["enabled": true, "dim": true, "intensity": 0.5, "blur": false])
+        UserDefaults.standard.register(defaults: ["enabled": true, "dim": true, "intensity": 0.5, "blur": false, "blurIntensity": 1.0])
         isEnabled = UserDefaults.standard.bool(forKey: "enabled")
         isDimEnabled = UserDefaults.standard.bool(forKey: "dim")
         intensity = UserDefaults.standard.double(forKey: "intensity")
         isBlurEnabled = UserDefaults.standard.bool(forKey: "blur")
+        blurIntensity = UserDefaults.standard.double(forKey: "blurIntensity")
         super.init()
         if isEnabled { start() }
     }
@@ -74,7 +82,7 @@ final class Dimmer: NSObject {
     }
 
     private func applyStyle() {
-        overlays.forEach { $0.apply(dim: isDimEnabled ? intensity : 0, blur: isBlurEnabled) }
+        overlays.forEach { $0.apply(dim: isDimEnabled ? intensity : 0, blur: isBlurEnabled ? blurIntensity : 0) }
     }
 
     @objc private func refresh() {
@@ -138,8 +146,10 @@ private final class Overlay {
         window.contentView = container
     }
 
-    func apply(dim: Double, blur: Bool) {
+    /// The system blur radius is fixed, so `blur` fades the blurred layer over the sharp content (0...1).
+    func apply(dim: Double, blur: Double) {
         dimView.layer?.backgroundColor = NSColor.black.withAlphaComponent(dim).cgColor
-        blurView.isHidden = !blur
+        blurView.alphaValue = blur
+        blurView.isHidden = blur == 0
     }
 }
