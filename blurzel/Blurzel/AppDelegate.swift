@@ -2,8 +2,17 @@ import AppKit
 import ServiceManagement
 
 /// Menu bar icon: left-click toggles dimming, right-click opens the options menu.
+@main
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+    static func main() {
+        let app = NSApplication.shared
+        let delegate = AppDelegate()
+        app.delegate = delegate
+        app.setActivationPolicy(.accessory)
+        withExtendedLifetime(delegate) { app.run() }
+    }
+
     private var dimmer: Dimmer!
     private var statusItem: NSStatusItem!
     private let menu = NSMenu()
