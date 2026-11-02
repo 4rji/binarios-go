@@ -1,11 +1,11 @@
 import AppKit
 
-/// Dims everything behind the active app by keeping a translucent overlay on
-/// each screen, ordered directly below the active app's front windows.
+/// Dims, and optionally blurs, everything behind the active app by keeping an
+/// overlay on each screen, ordered directly below the active app's front windows.
 @MainActor
 final class Dimmer: NSObject {
     private let ownPID = ProcessInfo.processInfo.processIdentifier
-    private var overlays: [NSWindow] = []
+    private var overlays: [Overlay] = []
     private var timer: Timer?
 
     var isEnabled: Bool {
@@ -19,16 +19,22 @@ final class Dimmer: NSObject {
     var intensity: Double {
         didSet {
             UserDefaults.standard.set(intensity, forKey: "intensity")
-            overlays.forEach { $0.backgroundColor = overlayColor }
+            applyStyle()
         }
     }
 
-    private var overlayColor: NSColor { .black.withAlphaComponent(intensity) }
+    var isBlurEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(isBlurEnabled, forKey: "blur")
+            applyStyle()
+        }
+    }
 
     override init() {
-        UserDefaults.standard.register(defaults: ["enabled": true, "intensity": 0.5])
+        UserDefaults.standard.register(defaults: ["enabled": true, "intensity": 0.5, "blur": false])
         isEnabled = UserDefaults.standard.bool(forKey: "enabled")
         intensity = UserDefaults.standard.double(forKey: "intensity")
+        isBlurEnabled = UserDefaults.standard.bool(forKey: "blur")
         super.init()
         if isEnabled { start() }
     }
@@ -48,28 +54,19 @@ final class Dimmer: NSObject {
         timer = nil
         NSWorkspace.shared.notificationCenter.removeObserver(self)
         NotificationCenter.default.removeObserver(self)
-        overlays.forEach { $0.orderOut(nil) }
+        overlays.forEach { $0.window.orderOut(nil) }
         overlays = []
     }
 
     @objc private func rebuildOverlays() {
-        overlays.forEach { $0.orderOut(nil) }
-        overlays = NSScreen.screens.map(makeOverlay)
+        overlays.forEach { $0.window.orderOut(nil) }
+        overlays = NSScreen.screens.map(Overlay.init(screen:))
+        applyStyle()
         refresh()
     }
 
-    private func makeOverlay(for screen: NSScreen) -> NSWindow {
-        let window = NSWindow(contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
-        window.setFrame(screen.frame, display: false)
-        window.backgroundColor = overlayColor
-        window.isOpaque = false
-        window.hasShadow = false
-        window.ignoresMouseEvents = true
-        window.isReleasedWhenClosed = false
-        window.animationBehavior = .none
-        window.level = .normal
-        window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
-        return window
+    private func applyStyle() {
+        overlays.forEach { $0.apply(intensity: intensity, blur: isBlurEnabled) }
     }
 
     @objc private func refresh() {
@@ -83,17 +80,58 @@ final class Dimmer: NSObject {
         let ids = windows.map { $0[kCGWindowNumber as String] as? Int ?? 0 }
         let pids = windows.map { $0[kCGWindowOwnerPID as String] as? pid_t ?? 0 }
 
-        // The front app's topmost run of windows stays bright; everything below it is dimmed.
+        // The front app's topmost run of windows stays clear; everything below it is covered.
         guard var anchor = pids.firstIndex(of: frontPID) else {
-            overlays.forEach { $0.orderOut(nil) }
+            overlays.forEach { $0.window.orderOut(nil) }
             return
         }
         while anchor + 1 < pids.count, pids[anchor + 1] == frontPID { anchor += 1 }
 
-        let overlayIDs = Set(overlays.map(\.windowNumber))
+        let overlayIDs = Set(overlays.map(\.window.windowNumber))
         let belowAnchor = Set(ids.dropFirst(anchor + 1).prefix(overlays.count))
         guard belowAnchor != overlayIDs else { return }
 
-        overlays.forEach { $0.order(.below, relativeTo: ids[anchor]) }
+        overlays.forEach { $0.window.order(.below, relativeTo: ids[anchor]) }
+    }
+}
+
+/// A click-through, full-screen window that dims, and optionally blurs, whatever is behind it.
+@MainActor
+private final class Overlay {
+    let window: NSWindow
+    private let blurView = NSVisualEffectView()
+    private let dimView = NSView()
+
+    init(screen: NSScreen) {
+        window = NSWindow(contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
+        window.setFrame(screen.frame, display: false)
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.hasShadow = false
+        window.ignoresMouseEvents = true
+        window.isReleasedWhenClosed = false
+        window.animationBehavior = .none
+        window.level = .normal
+        window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
+        window.appearance = NSAppearance(named: .darkAqua)
+
+        // Behind-window blending blurs the other apps' windows under the overlay.
+        blurView.blendingMode = .behindWindow
+        blurView.material = .fullScreenUI
+        blurView.state = .active
+        dimView.wantsLayer = true
+
+        let container = NSView(frame: NSRect(origin: .zero, size: screen.frame.size))
+        for view in [blurView, dimView] {
+            view.frame = container.bounds
+            view.autoresizingMask = [.width, .height]
+            container.addSubview(view)
+        }
+        window.contentView = container
+    }
+
+    func apply(intensity: Double, blur: Bool) {
+        dimView.layer?.backgroundColor = NSColor.black.withAlphaComponent(intensity).cgColor
+        blurView.isHidden = !blur
     }
 }

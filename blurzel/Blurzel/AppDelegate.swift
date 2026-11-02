@@ -16,7 +16,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var dimmer: Dimmer!
     private var statusItem: NSStatusItem!
     private let menu = NSMenu()
-    private let toggleItem = NSMenuItem(title: "Dim Background Windows", action: #selector(toggle), keyEquivalent: "")
+    private let toggleItem = NSMenuItem(title: "Dim Background Windows", action: #selector(toggle), keyEquivalent: "1")
+    private let blurItem = NSMenuItem(title: "Blur Background Windows", action: #selector(toggleBlur), keyEquivalent: "")
     private let loginItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -27,8 +28,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             button.target = self
             button.action = #selector(statusItemClicked)
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-            button.toolTip = "Blurzel — click to toggle, right-click for options"
+            button.toolTip = "Blurzel — click or ⇧⌘1 to toggle, right-click for options"
         }
+
+        HotKey.register()
+        NotificationCenter.default.addObserver(self, selector: #selector(toggle), name: .hotKeyPressed, object: nil)
 
         buildMenu()
         updateIcon()
@@ -36,12 +40,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func buildMenu() {
         toggleItem.target = self
+        toggleItem.keyEquivalentModifierMask = [.command, .shift]
+        blurItem.target = self
         loginItem.target = self
 
         let intensityLabel = NSMenuItem(title: "Intensity", action: nil, keyEquivalent: "")
         intensityLabel.isEnabled = false
 
         menu.addItem(toggleItem)
+        menu.addItem(blurItem)
         menu.addItem(.separator())
         menu.addItem(intensityLabel)
         menu.addItem(makeSliderItem())
@@ -64,6 +71,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         toggleItem.state = dimmer.isEnabled ? .on : .off
+        blurItem.state = dimmer.isBlurEnabled ? .on : .off
         loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
     }
 
@@ -81,6 +89,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func toggle() {
         dimmer.isEnabled.toggle()
         updateIcon()
+    }
+
+    @objc private func toggleBlur() {
+        dimmer.isBlurEnabled.toggle()
     }
 
     @objc private func intensityChanged(_ sender: NSSlider) {
