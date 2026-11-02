@@ -74,8 +74,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(makeItem("Dim Background Windows", #selector(toggleDim), isOn: dimmer.isDimEnabled))
         menu.addItem(makeItem("Blur Background Windows", #selector(toggleBlur), isOn: dimmer.isBlurEnabled))
         menu.addItem(.separator())
-        menu.addItem(makeStepsItem("Dim Intensity", value: dimmer.intensity, percents: Array(stride(from: 10, through: 90, by: 10)), action: #selector(intensityChosen(_:))))
-        menu.addItem(makeStepsItem("Blur Intensity", value: dimmer.blurIntensity, percents: Array(stride(from: 10, through: 100, by: 10)), action: #selector(blurIntensityChosen(_:))))
+        menu.addItem(makeLabelItem("Dim Intensity"))
+        menu.addItem(makeSliderItem(value: dimmer.intensity, range: 0.1...0.9, action: #selector(intensityChanged(_:))))
+        menu.addItem(makeLabelItem("Blur Intensity"))
+        menu.addItem(makeSliderItem(value: dimmer.blurIntensity, range: 0.1...1.0, action: #selector(blurIntensityChanged(_:))))
         menu.addItem(.separator())
         menu.addItem(iconItem)
         menu.addItem(makeItem("Launch at Login", #selector(toggleLaunchAtLogin), isOn: SMAppService.mainApp.status == .enabled))
@@ -91,19 +93,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return item
     }
 
-    /// A submenu of percentage steps. Plain items instead of an NSSlider view, which can
-    /// freeze while dragged inside a menu on recent macOS.
-    private func makeStepsItem(_ title: String, value: Double, percents: [Int], action: Selector) -> NSMenuItem {
-        let current = Int((value * 100).rounded())
-        let nearest = percents.min { abs($0 - current) < abs($1 - current) }
-        let submenu = NSMenu()
-        for percent in percents {
-            let item = makeItem("\(percent)%", action, isOn: percent == nearest)
-            item.tag = percent
-            submenu.addItem(item)
-        }
-        let item = NSMenuItem(title: "\(title) (\(current)%)", action: nil, keyEquivalent: "")
-        item.submenu = submenu
+    private func makeLabelItem(_ title: String) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.isEnabled = false
+        return item
+    }
+
+    private func makeSliderItem(value: Double, range: ClosedRange<Double>, action: Selector) -> NSMenuItem {
+        let slider = NSSlider(value: value, minValue: range.lowerBound, maxValue: range.upperBound, target: self, action: action)
+        slider.isContinuous = true
+        slider.frame = NSRect(x: 20, y: 2, width: 180, height: 24)
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 220, height: 28))
+        container.addSubview(slider)
+        let item = NSMenuItem()
+        item.view = container
         return item
     }
 
@@ -135,12 +138,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         dimmer.isBlurEnabled.toggle()
     }
 
-    @objc private func intensityChosen(_ sender: NSMenuItem) {
-        dimmer.intensity = Double(sender.tag) / 100
+    @objc private func intensityChanged(_ sender: NSSlider) {
+        dimmer.intensity = sender.doubleValue
     }
 
-    @objc private func blurIntensityChosen(_ sender: NSMenuItem) {
-        dimmer.blurIntensity = Double(sender.tag) / 100
+    @objc private func blurIntensityChanged(_ sender: NSSlider) {
+        dimmer.blurIntensity = sender.doubleValue
     }
 
     @objc private func iconChosen(_ sender: NSMenuItem) {
