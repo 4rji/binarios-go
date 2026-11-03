@@ -34,10 +34,15 @@ struct KeyboardTyper: Sendable {
     }
 
     func type(_ text: String) async throws {
+        // TISCopyCurrentKeyboardLayoutInputSource / TISGetInputSourceProperty
+        // (TSM/HIToolbox) assert they run on the main thread and trap (SIGTRAP)
+        // otherwise, so the layout-derived key map must be built here, before the
+        // work is handed to the background queue — not inside typeSynchronously.
+        let keyMap = await Self.asciiKeyMap()
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
-                    try self.typeSynchronously(text)
+                    try self.typeSynchronously(text, keyMap: keyMap)
                     continuation.resume()
                 } catch {
                     continuation.resume(throwing: error)
@@ -46,7 +51,7 @@ struct KeyboardTyper: Sendable {
         }
     }
 
-    private func typeSynchronously(_ text: String) throws {
+    private func typeSynchronously(_ text: String, keyMap: [Character: (keyCode: CGKeyCode, shift: Bool)]) throws {
         // The OCR hotkey (e.g. Shift+Option+…) is usually still physically held
         // the instant typing starts. Events posted to the HID tap are injected
         // below the modifier-combining layer, so the live hardware Shift/Option
@@ -67,7 +72,6 @@ struct KeyboardTyper: Sendable {
         // No modifiers on the Unicode-fallback events either.
         keyDown.flags = []
         keyUp.flags = []
-        let keyMap = Self.asciiKeyMap()
         for character in text {
             // Tab and newline are control characters: keyboardSetUnicodeString
             // posts them as a Unicode glyph that spreadsheets and most text
