@@ -150,6 +150,7 @@ struct KeyboardTyper: Sendable {
     /// keyboard layout, so the fix works on non-US layouts too. Derived by
     /// asking UCKeyTranslate what glyph each keycode emits with and without
     /// Shift, then inverting that into character → keystroke.
+    @MainActor
     private static func asciiKeyMap() -> [Character: (keyCode: CGKeyCode, shift: Bool)] {
         guard let inputSource = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),
               let layoutPtr = TISGetInputSourceProperty(inputSource, kTISPropertyUnicodeKeyLayoutData) else {
